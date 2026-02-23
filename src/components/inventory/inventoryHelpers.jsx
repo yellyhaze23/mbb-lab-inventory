@@ -38,6 +38,8 @@ export const safeUseItem = async ({
   quantityToUse = null,
   mode = 'CONTENT',
   amount = null,
+  trackingType = null,
+  wasOpened = false,
   userProfile = null,
   userName = null,
   notes = '',
@@ -74,6 +76,22 @@ export const safeUseItem = async ({
       p_experiment: experiment,
       p_idempotency_key: idempotencyKey,
     });
+  }
+
+  // For non-pack items, first deduct should mark item as opened.
+  if (
+    source === 'manual' &&
+    (trackingType === 'SIMPLE_MEASURE' || trackingType === 'UNIT_ONLY') &&
+    !wasOpened
+  ) {
+    const { error: openedUpdateError } = await supabase
+      .from('items')
+      .update({ opened_date: new Date().toISOString().slice(0, 10) })
+      .eq('id', itemId)
+      .is('opened_date', null);
+    if (openedUpdateError) {
+      throw new Error(openedUpdateError.message || 'Failed to mark item as opened');
+    }
   }
 
   return {

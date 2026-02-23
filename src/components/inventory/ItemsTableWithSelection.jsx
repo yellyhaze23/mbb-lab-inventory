@@ -193,6 +193,7 @@ export default function ItemsTableWithSelection({
         value: item.quantity_value ?? item.quantity ?? 0,
         unit: item.quantity_unit || item.unit || '',
         min: item.minimum_stock,
+        opened: Boolean(item.opened_date),
       };
     }
     if (trackingType === 'UNIT_ONLY') {
@@ -200,6 +201,7 @@ export default function ItemsTableWithSelection({
         value: item.total_units ?? item.quantity ?? 0,
         unit: item.unit_type || item.unit || 'unit',
         min: item.minimum_stock,
+        opened: Boolean(item.opened_date),
       };
     }
     return {
@@ -334,6 +336,11 @@ export default function ItemsTableWithSelection({
                                 Sealed: {quantity.sealed} / Opened: {quantity.opened}
                               </div>
                             </>
+                          )}
+                          {item.tracking_type !== 'PACK_WITH_CONTENT' && (
+                            <div className="text-xs text-slate-500 mt-1">
+                              {quantity.opened ? 'Opened' : 'Sealed'}
+                            </div>
                           )}
                         </>
                       );

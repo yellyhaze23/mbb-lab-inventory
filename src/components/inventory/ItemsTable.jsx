@@ -242,6 +242,7 @@ export default function ItemsTable({
             const stockUnit = trackingType === 'SIMPLE_MEASURE'
               ? (item.quantity_unit || item.unit || '')
               : (item.unit_type || item.unit || '');
+            const isOpenedSimpleOrUnit = trackingType !== 'PACK_WITH_CONTENT' && Boolean(item.opened_date);
             
             return (
               <TableRow 
@@ -280,6 +281,11 @@ export default function ItemsTable({
                   {trackingType === 'PACK_WITH_CONTENT' && (
                     <div className="text-xs text-slate-500 mt-1">
                       {(item.total_content ?? 0)} {(item.content_label || 'pcs')} | Sealed: {item.sealed_count ?? 0} / Opened: {item.opened_count ?? 0}
+                    </div>
+                  )}
+                  {trackingType !== 'PACK_WITH_CONTENT' && (
+                    <div className="text-xs text-slate-500 mt-1">
+                      {isOpenedSimpleOrUnit ? 'Opened' : 'Sealed'}
                     </div>
                   )}
                 </TableCell>

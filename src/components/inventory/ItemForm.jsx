@@ -178,6 +178,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
   const isSimpleMeasure = formData.tracking_type === 'SIMPLE_MEASURE';
   const isUnitOnly = formData.tracking_type === 'UNIT_ONLY';
   const isPackWithContent = formData.tracking_type === 'PACK_WITH_CONTENT';
+  const showSimpleUnitOpenedToggle = isSimpleMeasure || isUnitOnly;
 
   useEffect(() => {
     if (item) {
@@ -193,7 +194,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         content_per_unit: item.content_per_unit || 0,
         content_label: item.content_label || 'pcs',
         total_content: item.total_content || 0,
-        already_opened: false,
+        already_opened: trackingType !== 'PACK_WITH_CONTENT' ? Boolean(item.opened_date) : false,
         opened_pack_remaining_content: '',
         room_area: item.room_area || '',
         storage_type: item.storage_type || '',
@@ -288,7 +289,18 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
   };
 
   const handleChange = (field, value) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+    setFormData((prev) => {
+      if (field === 'tracking_type') {
+        // Avoid carrying state between tracking modes.
+        return {
+          ...prev,
+          tracking_type: value,
+          already_opened: false,
+          opened_pack_remaining_content: '',
+        };
+      }
+      return { ...prev, [field]: value };
+    });
     if (errors[field]) {
       setErrors((prev) => ({ ...prev, [field]: null }));
     }
@@ -347,6 +359,20 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                 </SelectContent>
               </Select>
             </div>
+
+            {showSimpleUnitOpenedToggle && (
+              <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
+                <label className="flex items-center gap-2 text-sm text-slate-700">
+                  <input
+                    type="checkbox"
+                    checked={formData.already_opened}
+                    onChange={(e) => handleChange('already_opened', e.target.checked)}
+                  />
+                  Already opened?
+                </label>
+                <p className="mt-1 text-xs text-slate-500">Unchecked means sealed.</p>
+              </div>
+            )}
 
             {isSimpleMeasure && (
               <>

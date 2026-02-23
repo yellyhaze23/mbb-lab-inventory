@@ -246,6 +246,8 @@ export default function Consumables() {
         itemId: item.id,
         mode: payload.mode,
         amount: payload.amount,
+        trackingType: item?.tracking_type || 'SIMPLE_MEASURE',
+        wasOpened: Boolean(item?.opened_date),
         userProfile,
         notes: payload.notes,
         source: 'manual',

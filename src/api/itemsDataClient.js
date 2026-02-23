@@ -32,6 +32,7 @@ const toIntOrNull = (value) => {
 };
 
 const normalizeTrackingPayload = (payload = {}) => {
+  const uiAlreadyOpened = payload?.already_opened;
   const next = sanitizeItemPayload(payload);
   const trackingType = next.tracking_type || 'SIMPLE_MEASURE';
 
@@ -49,6 +50,11 @@ const normalizeTrackingPayload = (payload = {}) => {
     next.content_per_unit = null;
     next.total_content = null;
     next.content_label = null;
+    if (typeof uiAlreadyOpened === 'boolean') {
+      next.opened_date = uiAlreadyOpened
+        ? (next.opened_date || new Date().toISOString().slice(0, 10))
+        : null;
+    }
   } else if (trackingType === 'UNIT_ONLY') {
     const totalUnits = toIntOrNull(next.total_units) ?? toIntOrNull(next.quantity) ?? 0;
     const unitType = (next.unit_type || next.unit || '').trim();
@@ -61,6 +67,11 @@ const normalizeTrackingPayload = (payload = {}) => {
     next.content_per_unit = null;
     next.total_content = null;
     next.content_label = null;
+    if (typeof uiAlreadyOpened === 'boolean') {
+      next.opened_date = uiAlreadyOpened
+        ? (next.opened_date || new Date().toISOString().slice(0, 10))
+        : null;
+    }
   } else {
     const totalUnits = toIntOrNull(next.total_units) ?? toIntOrNull(next.quantity) ?? 0;
     const contentPerUnit = toIntOrNull(next.content_per_unit) ?? 0;

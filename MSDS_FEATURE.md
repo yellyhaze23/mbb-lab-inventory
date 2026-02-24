@@ -90,3 +90,16 @@ Actions logged:
 - `VIEW` (from edge function)
 - `DOWNLOAD` (from edge function)
 
+## 8) Student Mode
+Student portal (`/StudentUse`) now supports MSDS visibility for usage recording:
+- Card list (`Recently Used` / search results):
+  - Shows subtle `MSDS` icon for supported items (chemicals, or any item with `msds_current_id`)
+  - Tooltip: `View MSDS` when available, `No MSDS attached` when unavailable
+- Usage modal:
+  - If MSDS exists: `View MSDS` and `Download` actions
+  - If missing: displays `MSDS not available`
+- Security/access:
+  - Student mode requests signed URLs through `msds-signed-url`
+  - Uses short-lived signed URLs (180 seconds)
+  - Supports PIN-validated student access (no upload/replace/remove UI exposed)
+  - Signed URLs are never stored persistently

@@ -22,7 +22,9 @@ import {
   Plus,
   Clock,
   ShieldCheck,
-  LogOut
+  LogOut,
+  Download,
+  Eye
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { isBefore, addDays } from 'date-fns';
@@ -35,8 +37,11 @@ import {
   DrawerHeader,
   DrawerTitle,
 } from "@/components/ui/drawer";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import debounce from 'lodash/debounce';
 import { invokeEdgeFunction } from '@/lib/edgeClient';
+import MsdsViewerModal from '@/components/msds/MsdsViewerModal';
+import { getSignedMsdsUrl } from '@/services/msdsService';
 
 const SESSION_KEY = 'lab_student_session';
 const SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
@@ -67,6 +72,11 @@ export default function StudentUse() {
   const [notes, setNotes] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState('');
+  const [msdsViewerOpen, setMsdsViewerOpen] = useState(false);
+  const [msdsViewerUrl, setMsdsViewerUrl] = useState(null);
+  const [msdsViewerTitle, setMsdsViewerTitle] = useState('MSDS Viewer');
+  const [loadingMsdsViewId, setLoadingMsdsViewId] = useState(null);
+  const [loadingMsdsDownloadId, setLoadingMsdsDownloadId] = useState(null);
 
   const searchInputRef = useRef(null);
   const pinSpores = useMemo(
@@ -372,6 +382,49 @@ const getItemStatus = (item) => {
       setQuantity(newVal);
     } else if (selectedItem) {
       setQuantity(maxAvailable);
+    }
+  };
+
+  const supportsMsds = (item) => item?.category === 'chemical' || Boolean(item?.msds_current_id);
+  const hasMsds = (item) => Boolean(item?.msds_current_id);
+
+  const handleViewMsds = async (item) => {
+    if (!supportsMsds(item) || !hasMsds(item)) {
+      toast.error('No MSDS attached');
+      return;
+    }
+
+    setLoadingMsdsViewId(item.id);
+    try {
+      const signedUrl = await getSignedMsdsUrl(item.msds_current_id, 'view', { pin: pinInput || null });
+      if (!signedUrl) throw new Error('Missing signed URL');
+      setMsdsViewerTitle(`${item.name} - MSDS`);
+      setMsdsViewerUrl(signedUrl);
+      setMsdsViewerOpen(true);
+    } catch (error) {
+      console.error('MSDS view error:', error);
+      toast.error('Unable to open MSDS. Please try again.');
+    } finally {
+      setLoadingMsdsViewId(null);
+    }
+  };
+
+  const handleDownloadMsds = async (item) => {
+    if (!supportsMsds(item) || !hasMsds(item)) {
+      toast.error('No MSDS attached');
+      return;
+    }
+
+    setLoadingMsdsDownloadId(item.id);
+    try {
+      const signedUrl = await getSignedMsdsUrl(item.msds_current_id, 'download', { pin: pinInput || null });
+      if (!signedUrl) throw new Error('Missing signed URL');
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      console.error('MSDS download error:', error);
+      toast.error('Unable to open MSDS. Please try again.');
+    } finally {
+      setLoadingMsdsDownloadId(null);
     }
   };
 
@@ -740,7 +793,14 @@ const getItemStatus = (item) => {
         {searchResults.length > 0 && (
           <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 mb-5 max-h-[50vh] overflow-y-auto shadow-md">
             {searchResults.map((item) => (
-              <ItemRow key={item.id} item={item} onSelect={selectItem} getItemStatus={getItemStatus} />
+              <ItemRow
+                key={item.id}
+                item={item}
+                onSelect={selectItem}
+                getItemStatus={getItemStatus}
+                onViewMsds={handleViewMsds}
+                isViewingMsds={loadingMsdsViewId === item.id}
+              />
             ))}
           </div>
         )}
@@ -773,7 +833,14 @@ const getItemStatus = (item) => {
             </div>
             <div className="bg-white border border-slate-200 rounded-xl divide-y divide-slate-100 shadow-md">
               {recentItems.map((item) => (
-                <ItemRow key={item.id} item={item} onSelect={selectItem} getItemStatus={getItemStatus} />
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  onSelect={selectItem}
+                  getItemStatus={getItemStatus}
+                  onViewMsds={handleViewMsds}
+                  isViewingMsds={loadingMsdsViewId === item.id}
+                />
               ))}
             </div>
           </div>
@@ -837,6 +904,48 @@ const getItemStatus = (item) => {
                   ))}
                 </div>
               )}
+
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2">
+                <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">MSDS</p>
+                {supportsMsds(selectedItem) && hasMsds(selectedItem) ? (
+                  <div className="mt-2 flex flex-wrap gap-2">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => handleViewMsds(selectedItem)}
+                      disabled={loadingMsdsViewId === selectedItem.id}
+                      aria-label={`View MSDS for ${selectedItem.name}`}
+                    >
+                      {loadingMsdsViewId === selectedItem.id ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Eye className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      View MSDS
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="h-8"
+                      onClick={() => handleDownloadMsds(selectedItem)}
+                      disabled={loadingMsdsDownloadId === selectedItem.id}
+                      aria-label={`Download MSDS for ${selectedItem.name}`}
+                    >
+                      {loadingMsdsDownloadId === selectedItem.id ? (
+                        <Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />
+                      ) : (
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                      )}
+                      Download
+                    </Button>
+                  </div>
+                ) : (
+                  <p className="mt-1 text-xs text-slate-500">MSDS not available</p>
+                )}
+              </div>
             </DrawerHeader>
 
             <div className="px-4 pb-4 overflow-y-auto max-h-[60vh]">
@@ -1037,14 +1146,26 @@ const getItemStatus = (item) => {
           </div>
         </DrawerContent>
       </Drawer>
+
+      <MsdsViewerModal
+        open={msdsViewerOpen}
+        onClose={() => {
+          setMsdsViewerOpen(false);
+          setMsdsViewerUrl(null);
+        }}
+        title={msdsViewerTitle}
+        signedUrl={msdsViewerUrl}
+      />
     </div>
   );
 }
 
 // Extracted Item Row Component
-function ItemRow({ item, onSelect, getItemStatus }) {
+function ItemRow({ item, onSelect, getItemStatus, onViewMsds, isViewingMsds }) {
   const statuses = getItemStatus(item);
   const isDisposed = item.status === 'disposed';
+  const supportsMsds = item?.category === 'chemical' || Boolean(item?.msds_current_id);
+  const hasMsds = Boolean(item?.msds_current_id);
   const trackingType = item?.tracking_type || 'SIMPLE_MEASURE';
   const stockText = trackingType === 'SIMPLE_MEASURE'
     ? `${item?.quantity_value ?? item?.quantity ?? 0} ${item?.quantity_unit || item?.unit || ''}`
@@ -1053,39 +1174,77 @@ function ItemRow({ item, onSelect, getItemStatus }) {
       : `${item?.total_units ?? item?.quantity ?? 0} ${item?.unit_type || item?.unit || 'pack'} - ${item?.total_content ?? 0} ${item?.content_label || 'pcs'}`;
   
   return (
-    <button
-      onClick={() => onSelect(item)}
-      className={`w-full p-3.5 text-left transition-all duration-200 flex items-center gap-3 hover:bg-slate-50 active:bg-slate-100 ${isDisposed ? 'opacity-50' : ''}`}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 ${item.category === 'chemical' ? 'bg-indigo-100' : 'bg-emerald-100'}`}>
-        {item.category === 'chemical' ? (
-          <FlaskConical className="w-5 h-5 text-indigo-600" />
-        ) : (
-          <Package className="w-5 h-5 text-emerald-600" />
-        )}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="font-semibold text-slate-900 text-sm truncate">{item.name}</p>
-        <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
-          <span className="font-medium">{stockText}</span>
-          {(item.room_area || item.location) && (
-            <>
-              <span className="text-slate-300">|</span>
-              <span className="truncate">{formatLocation(item)}</span>
-            </>
+    <div className={`w-full flex items-center gap-2 pr-2 transition-all duration-200 hover:bg-slate-50 active:bg-slate-100 ${isDisposed ? 'opacity-50' : ''}`}>
+      <button
+        type="button"
+        onClick={() => onSelect(item)}
+        className="flex-1 p-3.5 text-left flex items-center gap-3 min-w-0"
+      >
+        <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 transition-transform duration-200 ${item.category === 'chemical' ? 'bg-indigo-100' : 'bg-emerald-100'}`}>
+          {item.category === 'chemical' ? (
+            <FlaskConical className="w-5 h-5 text-indigo-600" />
+          ) : (
+            <Package className="w-5 h-5 text-emerald-600" />
           )}
         </div>
-      </div>
-      {statuses.length > 0 && (
-        <div className="flex-shrink-0">
-          {statuses.slice(0, 1).map((status, idx) => (
-            <Badge key={idx} variant="outline" className={`text-xs px-2 py-0.5 font-medium ${status.color}`}>
-              {status.label}
-            </Badge>
-          ))}
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-slate-900 text-sm truncate">{item.name}</p>
+          <div className="flex items-center gap-2 text-xs text-slate-500 mt-0.5">
+            <span className="font-medium">{stockText}</span>
+            {(item.room_area || item.location) && (
+              <>
+                <span className="text-slate-300">|</span>
+                <span className="truncate">{formatLocation(item)}</span>
+              </>
+            )}
+          </div>
         </div>
-      )}
-    </button>
+      </button>
+
+      <div className="flex items-center gap-1">
+        {statuses.length > 0 && (
+          <div className="flex-shrink-0">
+            {statuses.slice(0, 1).map((status, idx) => (
+              <Badge key={idx} variant="outline" className={`text-xs px-2 py-0.5 font-medium ${status.color}`}>
+                {status.label}
+              </Badge>
+            ))}
+          </div>
+        )}
+
+        {supportsMsds && (
+          <TooltipProvider delayDuration={120}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={`h-8 w-8 rounded-lg ${hasMsds ? 'text-slate-500 hover:text-slate-700' : 'text-slate-300 hover:text-slate-300'}`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    if (!hasMsds) return;
+                    onViewMsds?.(item);
+                  }}
+                  disabled={isViewingMsds}
+                  aria-disabled={!hasMsds}
+                  aria-label={hasMsds ? `View MSDS for ${item.name}` : `No MSDS attached for ${item.name}`}
+                >
+                  {isViewingMsds ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <FileText className="w-4 h-4" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                {hasMsds ? 'View MSDS' : 'No MSDS attached'}
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </div>
+    </div>
   );
 }
 

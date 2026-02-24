@@ -46,7 +46,7 @@ Deno.serve(async (req: Request) => {
 
     let dbQuery = supabaseAdmin
       .from("items")
-      .select("id,name,category,quantity,unit,tracking_type,quantity_value,quantity_unit,unit_type,total_units,content_per_unit,content_label,total_content,room_area,storage_type,storage_number,position,location,minimum_stock,expiration_date,status,supplier,project_fund_source")
+      .select("id,name,category,quantity,unit,tracking_type,quantity_value,quantity_unit,unit_type,total_units,content_per_unit,content_label,total_content,room_area,storage_type,storage_number,position,location,minimum_stock,expiration_date,status,supplier,project_fund_source,msds_current_id")
       .eq("status", "active")
       .order("name", { ascending: true })
       .limit(200);

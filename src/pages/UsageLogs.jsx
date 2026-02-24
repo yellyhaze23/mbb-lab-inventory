@@ -38,6 +38,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { format } from 'date-fns';
 import { listUsageLogs } from '@/api/usageLogsDataClient';
 import useDebounce from '@/hooks/useDebounce';
+import TablePagination from '@/components/ui/table-pagination';
 
 export default function UsageLogs() {
   const [logs, setLogs] = useState([]);
@@ -51,6 +52,8 @@ export default function UsageLogs() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [sortConfig, setSortConfig] = useState({ key: 'created_date', direction: 'desc' });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const isFirstLoadRef = useRef(true);
 
   const handleSearchChange = (value) => {
@@ -144,6 +147,22 @@ export default function UsageLogs() {
     return result;
   }, [logs, debouncedSearch, categoryFilter, actionFilter, userFilter, dateFrom, dateTo, sortConfig]);
 
+  const paginatedLogs = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAndSortedLogs.slice(start, start + pageSize);
+  }, [filteredAndSortedLogs, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, categoryFilter, actionFilter, userFilter, dateFrom, dateTo, pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredAndSortedLogs.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredAndSortedLogs.length, currentPage, pageSize]);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -159,6 +178,7 @@ export default function UsageLogs() {
     setDateFrom('');
     setDateTo('');
     setSortConfig({ key: 'created_date', direction: 'desc' });
+    setCurrentPage(1);
   };
 
   const hasActiveFilters = searchQuery || categoryFilter !== 'all' || actionFilter !== 'all' || userFilter !== 'all' || dateFrom || dateTo;
@@ -342,7 +362,7 @@ export default function UsageLogs() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredAndSortedLogs.map((log) => (
+                paginatedLogs.map((log) => (
                   <TableRow key={log.id} className="hover:bg-slate-50 transition-colors duration-150">
                     <TableCell>
                       <div className="flex items-center gap-3">
@@ -414,6 +434,16 @@ export default function UsageLogs() {
               <Skeleton className="h-3 w-5/6" />
             </div>
           </div>
+        )}
+        {!isLoading && (
+          <TablePagination
+            totalItems={filteredAndSortedLogs.length}
+            currentPage={currentPage}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            itemLabel="records"
+          />
         )}
       </div>
     </div>

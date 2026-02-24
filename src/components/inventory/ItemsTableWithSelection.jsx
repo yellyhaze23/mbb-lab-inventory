@@ -3,7 +3,7 @@ import { format, isBefore, addDays } from 'date-fns';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Checkbox } from '@/components/ui/checkbox';
-import {
+import { 
   Table,
   TableBody,
   TableCell,
@@ -34,7 +34,12 @@ import {
   Trash2,
   ArrowUp,
   ArrowDown,
-  ArrowUpDown
+  ArrowUpDown,
+  Eye,
+  Download,
+  History,
+  Upload,
+  FileX
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatLocation } from './ItemsTable';
@@ -76,7 +81,13 @@ export default function ItemsTableWithSelection({
   onUse, 
   onRestock,
   onAdjust,
-  onDispose 
+  onDispose,
+  onViewMsds,
+  onDownloadMsds,
+  onShowMsdsHistory,
+  onUploadOrReplaceMsds,
+  onRemoveMsds,
+  canManageMsds = false,
 }) {
   const defaultSort = { key: 'name', direction: 'asc' };
   const currentSort = sortConfig || defaultSort;
@@ -311,6 +322,16 @@ export default function ItemsTableWithSelection({
                         {item.project_fund_source && (
                           <p className="text-xs text-slate-400">{item.project_fund_source}</p>
                         )}
+                        {category === 'chemical' && (
+                          <div className="mt-1">
+                            <Badge
+                              variant="outline"
+                              className={item.msds_current_id ? 'bg-blue-50 text-blue-700 border-blue-200 text-[10px]' : 'bg-slate-100 text-slate-500 border-slate-200 text-[10px]'}
+                            >
+                              {item.msds_current_id ? `MSDS v${item.msds_current?.version || '-'}` : 'No MSDS'}
+                            </Badge>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </TableCell>
@@ -395,7 +416,55 @@ export default function ItemsTableWithSelection({
                           <MoreHorizontal className="w-4 h-4" />
                         </Button>
                       </DropdownMenuTrigger>
-                      <DropdownMenuContent align="end" className="w-48">
+                      <DropdownMenuContent align="end" className="w-56">
+                        {category === 'chemical' && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => onViewMsds?.(item)}
+                              disabled={!item.msds_current_id}
+                              aria-label={`View MSDS for ${item.name}`}
+                            >
+                              <Eye className="w-4 h-4 mr-2" />
+                              View MSDS
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => onDownloadMsds?.(item)}
+                              disabled={!item.msds_current_id}
+                              aria-label={`Download MSDS for ${item.name}`}
+                            >
+                              <Download className="w-4 h-4 mr-2" />
+                              Download MSDS
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => onShowMsdsHistory?.(item)}
+                              aria-label={`MSDS history for ${item.name}`}
+                            >
+                              <History className="w-4 h-4 mr-2" />
+                              MSDS History
+                            </DropdownMenuItem>
+                            {canManageMsds && (
+                              <>
+                                <DropdownMenuItem
+                                  onClick={() => onUploadOrReplaceMsds?.(item)}
+                                  aria-label={`${item.msds_current_id ? 'Replace' : 'Upload'} MSDS for ${item.name}`}
+                                >
+                                  <Upload className="w-4 h-4 mr-2" />
+                                  {item.msds_current_id ? 'Replace MSDS' : 'Upload MSDS'}
+                                </DropdownMenuItem>
+                                <DropdownMenuItem
+                                  onClick={() => onRemoveMsds?.(item)}
+                                  disabled={!item.msds_current_id}
+                                  className="text-red-600 focus:text-red-600"
+                                  aria-label={`Remove MSDS for ${item.name}`}
+                                >
+                                  <FileX className="w-4 h-4 mr-2" />
+                                  Remove MSDS
+                                </DropdownMenuItem>
+                              </>
+                            )}
+                            <DropdownMenuSeparator />
+                          </>
+                        )}
                         {isActive && (
                           <>
                             <DropdownMenuItem onClick={() => onUse(item)}>

@@ -25,6 +25,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { validateMsdsFile } from '@/api/msdsService';
 
 const generateQRCode = () => {
   return `LAB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
@@ -174,6 +175,11 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
   const [formData, setFormData] = useState(getInitialFormData(category));
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
+  const [msdsFile, setMsdsFile] = useState(null);
+  const [msdsTitle, setMsdsTitle] = useState('');
+  const [msdsSupplier, setMsdsSupplier] = useState('');
+  const [msdsRevisionDate, setMsdsRevisionDate] = useState('');
+  const [msdsError, setMsdsError] = useState('');
 
   const isSimpleMeasure = formData.tracking_type === 'SIMPLE_MEASURE';
   const isUnitOnly = formData.tracking_type === 'UNIT_ONLY';
@@ -217,6 +223,11 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         qr_code_value: generateQRCode(),
       });
     }
+    setMsdsFile(null);
+    setMsdsTitle('');
+    setMsdsSupplier('');
+    setMsdsRevisionDate('');
+    setMsdsError('');
     setErrors({});
   }, [item, category, open]);
 
@@ -254,6 +265,11 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
       }
     }
 
+    if (category === 'chemical' && !item && msdsFile) {
+      const check = validateMsdsFile(msdsFile);
+      if (!check.valid) nextErrors.msds_file = check.message || 'Invalid MSDS file';
+    }
+
     setErrors(nextErrors);
     return Object.keys(nextErrors).length === 0;
   };
@@ -275,6 +291,15 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
       }
     } else {
       payload.total_content = null;
+    }
+
+    if (category === 'chemical' && !item && msdsFile) {
+      payload.msds_upload = {
+        file: msdsFile,
+        title: msdsTitle?.trim() || null,
+        supplier: msdsSupplier?.trim() || null,
+        revision_date: msdsRevisionDate || null,
+      };
     }
 
     setIsLoading(true);
@@ -319,7 +344,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-slate-200 shadow-2xl [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
+      <DialogContent className="sm:max-w-[640px] max-h-[90vh] overflow-y-auto p-0 rounded-2xl border-slate-200 shadow-2xl [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden origin-[50%_44%] will-change-[opacity,transform] motion-safe:duration-300 motion-safe:ease-[cubic-bezier(0.22,1,0.36,1)] data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 data-[state=open]:slide-in-from-top-[46%] data-[state=closed]:slide-out-to-top-[46%]">
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
           <DialogTitle className="text-xl font-semibold tracking-tight">
             {item ? 'Edit' : 'Add'} {category === 'chemical' ? 'Chemical' : 'Consumable'}
@@ -641,6 +666,77 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                     placeholder="Select opened date"
                   />
                 </div>
+
+                {!item && (
+                  <>
+                    <div className="col-span-2 pt-1">
+                      <p className="text-sm font-semibold text-slate-700 mb-3 border-b border-slate-200 pb-2">MSDS (Optional)</p>
+                    </div>
+
+                    <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3 space-y-3">
+                      <div>
+                        <Label htmlFor="msds_file">MSDS PDF</Label>
+                        <Input
+                          id="msds_file"
+                          type="file"
+                          accept="application/pdf,.pdf"
+                          onChange={(e) => {
+                            setMsdsError('');
+                            const file = e.target.files?.[0] || null;
+                            setMsdsFile(file);
+                            if (file) {
+                              const check = validateMsdsFile(file);
+                              if (!check.valid) {
+                                setMsdsError(check.message || 'Invalid MSDS file');
+                              }
+                            }
+                          }}
+                          className={errors.msds_file || msdsError ? 'border-red-500' : ''}
+                        />
+                        {msdsFile && !msdsError && (
+                          <p className="mt-1 text-xs text-slate-500">
+                            {msdsFile.name} ({(msdsFile.size / (1024 * 1024)).toFixed(2)} MB)
+                          </p>
+                        )}
+                        {(errors.msds_file || msdsError) && (
+                          <p className="text-red-500 text-sm mt-1">{errors.msds_file || msdsError}</p>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div className="col-span-2">
+                          <Label htmlFor="msds_title">MSDS Title</Label>
+                          <Input
+                            id="msds_title"
+                            value={msdsTitle}
+                            onChange={(e) => setMsdsTitle(e.target.value)}
+                            placeholder="e.g., Sodium Chloride MSDS"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="msds_supplier">MSDS Supplier</Label>
+                          <Input
+                            id="msds_supplier"
+                            value={msdsSupplier}
+                            onChange={(e) => setMsdsSupplier(e.target.value)}
+                            placeholder="Supplier"
+                          />
+                        </div>
+
+                        <div>
+                          <Label htmlFor="msds_revision_date">MSDS Revision Date</Label>
+                          <DatePickerInput
+                            id="msds_revision_date"
+                            value={msdsRevisionDate}
+                            onChange={setMsdsRevisionDate}
+                            placeholder="Select date"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </>
+                )}
               </>
             )}
 
@@ -670,7 +766,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading}>
+            <Button type="submit" disabled={isLoading} className="bg-slate-900 text-white hover:bg-slate-800">
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

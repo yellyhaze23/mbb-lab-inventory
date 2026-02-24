@@ -21,7 +21,12 @@ import {
   FolderOpen,
   Building2,
   Hash,
-  FileText
+  FileText,
+  Eye,
+  Download,
+  History,
+  Upload,
+  FileX
 } from 'lucide-react';
 import { formatLocation } from './ItemsTable';
 
@@ -33,7 +38,13 @@ export default function ItemDetailDrawer({
   onRestock,
   onAdjust,
   onDispose,
-  onEdit
+  onEdit,
+  onViewMsds,
+  onDownloadMsds,
+  onShowMsdsHistory,
+  onUploadOrReplaceMsds,
+  onRemoveMsds,
+  canManageMsds = false,
 }) {
   if (!item) return null;
 
@@ -197,6 +208,81 @@ export default function ItemDetailDrawer({
               <InfoRow icon={FileText} label="Description" value={item.description} />
             )}
           </div>
+
+          {item.category === 'chemical' && (
+            <div className="mt-6 rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-semibold text-slate-800">MSDS</h3>
+                <Badge
+                  variant="outline"
+                  className={item.msds_current_id ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : 'bg-slate-100 text-slate-600 border-slate-200'}
+                >
+                  {item.msds_current_id ? 'Attached' : 'Missing'}
+                </Badge>
+              </div>
+
+              {item.msds_current_id ? (
+                <div className="mt-2 text-xs text-slate-600">
+                  <p>Current version: v{item.msds_current?.version || '-'}</p>
+                  <p>Supplier: {item.msds_current?.supplier || '-'}</p>
+                  <p>Revision: {item.msds_current?.revision_date ? format(new Date(item.msds_current.revision_date), 'MMM d, yyyy') : '-'}</p>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-slate-500">No MSDS uploaded.</p>
+              )}
+
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onViewMsds?.(item)}
+                  disabled={!item.msds_current_id}
+                >
+                  <Eye className="w-4 h-4 mr-2" />
+                  View
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onDownloadMsds?.(item)}
+                  disabled={!item.msds_current_id}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  Download
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onShowMsdsHistory?.(item)}
+                >
+                  <History className="w-4 h-4 mr-2" />
+                  History
+                </Button>
+                {canManageMsds && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onUploadOrReplaceMsds?.(item)}
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      {item.msds_current_id ? 'Replace' : 'Upload'}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-red-600 hover:text-red-700"
+                      onClick={() => onRemoveMsds?.(item)}
+                      disabled={!item.msds_current_id}
+                    >
+                      <FileX className="w-4 h-4 mr-2" />
+                      Remove
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Danger Zone */}
           {isActive && (

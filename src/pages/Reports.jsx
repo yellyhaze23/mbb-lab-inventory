@@ -26,11 +26,18 @@ import { format, isBefore, addDays } from 'date-fns';
 import { toast } from 'sonner';
 import { listAllItems } from '@/api/itemsDataClient';
 import { listUsageLogs } from '@/api/usageLogsDataClient';
+import TablePagination from '@/components/ui/table-pagination';
 
 export default function Reports() {
   const [items, setItems] = useState([]);
   const [logs, setLogs] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [mostUsedPage, setMostUsedPage] = useState(1);
+  const [mostUsedPageSize, setMostUsedPageSize] = useState(10);
+  const [lowStockPage, setLowStockPage] = useState(1);
+  const [lowStockPageSize, setLowStockPageSize] = useState(10);
+  const [expiredPage, setExpiredPage] = useState(1);
+  const [expiredPageSize, setExpiredPageSize] = useState(10);
 
   useEffect(() => {
     loadData();
@@ -52,7 +59,7 @@ export default function Reports() {
   };
 
   // Most used items
-  const mostUsedItems = () => {
+  const mostUsedItems = React.useMemo(() => {
     const usageByItem = {};
     logs.forEach(log => {
       if (!usageByItem[log.item_id]) {
@@ -70,25 +77,78 @@ export default function Reports() {
     
     return Object.entries(usageByItem)
       .sort(([, a], [, b]) => b.usageCount - a.usageCount)
-      .slice(0, 10)
       .map(([id, data]) => ({ id, ...data }));
-  };
+  }, [logs]);
 
   // Low stock items
-  const lowStockItems = items.filter(item => item.quantity <= item.minimum_stock);
+  const lowStockItems = React.useMemo(
+    () => items.filter(item => item.quantity <= item.minimum_stock),
+    [items]
+  );
 
   // Expired items
-  const expiredItems = items.filter(item => {
-    if (!item.expiration_date) return false;
-    return isBefore(new Date(item.expiration_date), new Date());
-  });
+  const expiredItems = React.useMemo(
+    () => items.filter(item => item.expiration_date && isBefore(new Date(item.expiration_date), new Date())),
+    [items]
+  );
 
   // Expiring soon items
-  const expiringSoonItems = items.filter(item => {
-    if (!item.expiration_date) return false;
-    const expDate = new Date(item.expiration_date);
-    return isAfter(expDate, new Date()) && isBefore(expDate, addDays(new Date(), 30));
-  });
+  const expiringSoonItems = React.useMemo(
+    () =>
+      items.filter(item => {
+        if (!item.expiration_date) return false;
+        const expDate = new Date(item.expiration_date);
+        return isAfter(expDate, new Date()) && isBefore(expDate, addDays(new Date(), 30));
+      }),
+    [items]
+  );
+
+  const expiredAndExpiringItems = React.useMemo(
+    () => [...expiredItems, ...expiringSoonItems],
+    [expiredItems, expiringSoonItems]
+  );
+
+  const paginatedMostUsed = React.useMemo(() => {
+    const start = (mostUsedPage - 1) * mostUsedPageSize;
+    return mostUsedItems.slice(start, start + mostUsedPageSize);
+  }, [mostUsedItems, mostUsedPage, mostUsedPageSize]);
+
+  const paginatedLowStock = React.useMemo(() => {
+    const start = (lowStockPage - 1) * lowStockPageSize;
+    return lowStockItems.slice(start, start + lowStockPageSize);
+  }, [lowStockItems, lowStockPage, lowStockPageSize]);
+
+  const paginatedExpired = React.useMemo(() => {
+    const start = (expiredPage - 1) * expiredPageSize;
+    return expiredAndExpiringItems.slice(start, start + expiredPageSize);
+  }, [expiredAndExpiringItems, expiredPage, expiredPageSize]);
+
+  useEffect(() => {
+    setMostUsedPage(1);
+  }, [mostUsedPageSize]);
+
+  useEffect(() => {
+    setLowStockPage(1);
+  }, [lowStockPageSize]);
+
+  useEffect(() => {
+    setExpiredPage(1);
+  }, [expiredPageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(mostUsedItems.length / mostUsedPageSize));
+    if (mostUsedPage > totalPages) setMostUsedPage(totalPages);
+  }, [mostUsedItems.length, mostUsedPage, mostUsedPageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(lowStockItems.length / lowStockPageSize));
+    if (lowStockPage > totalPages) setLowStockPage(totalPages);
+  }, [lowStockItems.length, lowStockPage, lowStockPageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(expiredAndExpiringItems.length / expiredPageSize));
+    if (expiredPage > totalPages) setExpiredPage(totalPages);
+  }, [expiredAndExpiringItems.length, expiredPage, expiredPageSize]);
 
   function isAfter(date1, date2) {
     return date1 > date2;
@@ -252,56 +312,70 @@ export default function Reports() {
                     <Skeleton key={i} className="h-12 w-full" />
                   ))}
                 </div>
-              ) : mostUsedItems().length === 0 ? (
+              ) : mostUsedItems.length === 0 ? (
                 <div className="text-center py-8 text-slate-500">
                   <TrendingUp className="w-12 h-12 mx-auto text-slate-300 mb-3" />
                   <p>No usage data yet</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Total Used</TableHead>
-                      <TableHead>Usage Count</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {mostUsedItems().map((item, index) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                            index === 0 ? 'bg-yellow-100 text-yellow-700' :
-                            index === 1 ? 'bg-slate-200 text-slate-700' :
-                            index === 2 ? 'bg-amber-100 text-amber-700' :
-                            'bg-slate-100 text-slate-600'
-                          }`}>
-                            {index + 1}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.type === 'chemical' ? 'bg-indigo-50' : 'bg-emerald-50'}`}>
-                              {item.type === 'chemical' ? (
-                                <FlaskConical className="w-4 h-4 text-indigo-600" />
-                              ) : (
-                                <Package className="w-4 h-4 text-emerald-600" />
-                              )}
-                            </div>
-                            <span className="font-medium">{item.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          {item.totalUsed.toFixed(2)} {item.unit}
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{item.usageCount} times</Badge>
-                        </TableCell>
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Rank</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Total Used</TableHead>
+                        <TableHead>Usage Count</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedMostUsed.map((item, index) => {
+                        const absoluteRank = (mostUsedPage - 1) * mostUsedPageSize + index + 1;
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
+                                absoluteRank === 1 ? 'bg-yellow-100 text-yellow-700' :
+                                absoluteRank === 2 ? 'bg-slate-200 text-slate-700' :
+                                absoluteRank === 3 ? 'bg-amber-100 text-amber-700' :
+                                'bg-slate-100 text-slate-600'
+                              }`}>
+                                {absoluteRank}
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.type === 'chemical' ? 'bg-indigo-50' : 'bg-emerald-50'}`}>
+                                  {item.type === 'chemical' ? (
+                                    <FlaskConical className="w-4 h-4 text-indigo-600" />
+                                  ) : (
+                                    <Package className="w-4 h-4 text-emerald-600" />
+                                  )}
+                                </div>
+                                <span className="font-medium">{item.name}</span>
+                              </div>
+                            </TableCell>
+                            <TableCell>
+                              {item.totalUsed.toFixed(2)} {item.unit}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline">{item.usageCount} times</Badge>
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  <TablePagination
+                    totalItems={mostUsedItems.length}
+                    currentPage={mostUsedPage}
+                    pageSize={mostUsedPageSize}
+                    onPageChange={setMostUsedPage}
+                    onPageSizeChange={setMostUsedPageSize}
+                    itemLabel="ranked items"
+                    className="mt-4 rounded-lg border border-slate-200"
+                  />
+                </>
               )}
             </CardContent>
           </Card>
@@ -326,45 +400,56 @@ export default function Reports() {
                   <p>All items are well stocked</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Current Qty</TableHead>
-                      <TableHead>Min Stock</TableHead>
-                      <TableHead>Location</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {lowStockItems.map((item) => (
-                      <TableRow key={item.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-3">
-                            <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.category === 'chemical' ? 'bg-indigo-50' : 'bg-emerald-50'}`}>
-                              {item.category === 'chemical' ? (
-                                <FlaskConical className="w-4 h-4 text-indigo-600" />
-                              ) : (
-                                <Package className="w-4 h-4 text-emerald-600" />
-                              )}
-                            </div>
-                            <span className="font-medium">{item.name}</span>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span className="text-amber-600 font-medium">
-                            {item.quantity} {item.unit}
-                          </span>
-                        </TableCell>
-                        <TableCell>
-                          {item.minimum_stock} {item.unit}
-                        </TableCell>
-                        <TableCell>
-                          {item.location || '-'}
-                        </TableCell>
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Current Qty</TableHead>
+                        <TableHead>Min Stock</TableHead>
+                        <TableHead>Location</TableHead>
                       </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedLowStock.map((item) => (
+                        <TableRow key={item.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-3">
+                              <div className={`w-9 h-9 rounded-lg flex items-center justify-center ${item.category === 'chemical' ? 'bg-indigo-50' : 'bg-emerald-50'}`}>
+                                {item.category === 'chemical' ? (
+                                  <FlaskConical className="w-4 h-4 text-indigo-600" />
+                                ) : (
+                                  <Package className="w-4 h-4 text-emerald-600" />
+                                )}
+                              </div>
+                              <span className="font-medium">{item.name}</span>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span className="text-amber-600 font-medium">
+                              {item.quantity} {item.unit}
+                            </span>
+                          </TableCell>
+                          <TableCell>
+                            {item.minimum_stock} {item.unit}
+                          </TableCell>
+                          <TableCell>
+                            {item.location || '-'}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                  <TablePagination
+                    totalItems={lowStockItems.length}
+                    currentPage={lowStockPage}
+                    pageSize={lowStockPageSize}
+                    onPageChange={setLowStockPage}
+                    onPageSizeChange={setLowStockPageSize}
+                    itemLabel="low stock items"
+                    className="mt-4 rounded-lg border border-slate-200"
+                  />
+                </>
               )}
             </CardContent>
           </Card>
@@ -389,44 +474,55 @@ export default function Reports() {
                   <p>No expired or expiring items</p>
                 </div>
               ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Item</TableHead>
-                      <TableHead>Expiration Date</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Location</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {[...expiredItems, ...expiringSoonItems].map((item) => {
-                      const isExpired = isBefore(new Date(item.expiration_date), new Date());
-                      return (
-                        <TableRow key={item.id}>
-                          <TableCell>
-                            <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
-                                <FlaskConical className="w-4 h-4 text-indigo-600" />
+                <>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Item</TableHead>
+                        <TableHead>Expiration Date</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Location</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedExpired.map((item) => {
+                        const isExpired = isBefore(new Date(item.expiration_date), new Date());
+                        return (
+                          <TableRow key={item.id}>
+                            <TableCell>
+                              <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 rounded-lg bg-indigo-50 flex items-center justify-center">
+                                  <FlaskConical className="w-4 h-4 text-indigo-600" />
+                                </div>
+                                <span className="font-medium">{item.name}</span>
                               </div>
-                              <span className="font-medium">{item.name}</span>
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            {format(new Date(item.expiration_date), 'MMM d, yyyy')}
-                          </TableCell>
-                          <TableCell>
-                            <Badge variant="outline" className={isExpired ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
-                              {isExpired ? 'Expired' : 'Expiring Soon'}
-                            </Badge>
-                          </TableCell>
-                          <TableCell>
-                            {item.location || '-'}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })}
-                  </TableBody>
-                </Table>
+                            </TableCell>
+                            <TableCell>
+                              {format(new Date(item.expiration_date), 'MMM d, yyyy')}
+                            </TableCell>
+                            <TableCell>
+                              <Badge variant="outline" className={isExpired ? 'bg-red-100 text-red-700 border-red-200' : 'bg-amber-100 text-amber-700 border-amber-200'}>
+                                {isExpired ? 'Expired' : 'Expiring Soon'}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>
+                              {item.location || '-'}
+                            </TableCell>
+                          </TableRow>
+                        );
+                      })}
+                    </TableBody>
+                  </Table>
+                  <TablePagination
+                    totalItems={expiredAndExpiringItems.length}
+                    currentPage={expiredPage}
+                    pageSize={expiredPageSize}
+                    onPageChange={setExpiredPage}
+                    onPageSizeChange={setExpiredPageSize}
+                    itemLabel="expiring items"
+                    className="mt-4 rounded-lg border border-slate-200"
+                  />
+                </>
               )}
             </CardContent>
           </Card>

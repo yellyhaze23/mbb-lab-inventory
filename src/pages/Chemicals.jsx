@@ -16,9 +16,22 @@ import ItemDetailDrawer from '../components/inventory/ItemDetailDrawer';
 import BulkActionBar from '../components/inventory/BulkActionBar';
 import QuickFilterTabs from '../components/inventory/QuickFilterTabs';
 import InventoryFilters from '../components/inventory/InventoryFilters';
+import MsdsViewerModal from '../components/inventory/MsdsViewerModal';
+import MsdsHistoryModal from '../components/inventory/MsdsHistoryModal';
+import MsdsUploadDialog from '../components/inventory/MsdsUploadDialog';
 import { formatLocation } from '../components/inventory/ItemsTable';
 import { safeUseItem, restockItem, adjustItemStock, archiveItem, restoreItem, disposeItem } from '../components/inventory/inventoryHelpers';
 import useDebounce from '@/hooks/useDebounce';
+import TablePagination from '@/components/ui/table-pagination';
+import {
+  archiveMsdsVersion,
+  getSignedMsdsUrl,
+  isAdminProfile,
+  listMsdsHistory,
+  removeCurrentMsds,
+  setCurrentMsds,
+  uploadMsdsVersion,
+} from '@/api/msdsService';
 
 export default function Chemicals() {
   const [items, setItems] = useState([]);
@@ -44,6 +57,13 @@ export default function Chemicals() {
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [highlightedId, setHighlightedId] = useState(null);
+  const [showMsdsViewer, setShowMsdsViewer] = useState(false);
+  const [showMsdsHistory, setShowMsdsHistory] = useState(false);
+  const [showMsdsUpload, setShowMsdsUpload] = useState(false);
+  const [viewerSignedUrl, setViewerSignedUrl] = useState(null);
+  const [msdsContextItem, setMsdsContextItem] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
@@ -234,6 +254,22 @@ export default function Chemicals() {
     return result;
   }, [items, debouncedSearch, statusFilter, roomFilter, storageFilter, expirationFilter, stockFilter, sortConfig]);
 
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAndSortedItems.slice(start, start + pageSize);
+  }, [filteredAndSortedItems, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, roomFilter, storageFilter, expirationFilter, stockFilter, quickFilter, pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredAndSortedItems.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredAndSortedItems.length, currentPage, pageSize]);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -250,17 +286,32 @@ export default function Chemicals() {
     setStockFilter('all');
     setQuickFilter('all');
     setSortConfig({ key: 'name', direction: 'asc' });
+    setCurrentPage(1);
   };
 
   // CRUD Handlers
   const handleSave = async (formData) => {
+    const { msds_upload, ...itemPayload } = formData;
+
     try {
       if (selectedItem) {
-        await updateItemById(selectedItem.id, formData);
+        await updateItemById(selectedItem.id, itemPayload);
         toast.success('Chemical updated successfully');
       } else {
-        await createItemForCategory('chemical', formData);
-        toast.success('Chemical added successfully');
+        const created = await createItemForCategory('chemical', itemPayload);
+        if (msds_upload?.file && created?.id) {
+          await uploadMsdsVersion({
+            chemicalId: created.id,
+            file: msds_upload.file,
+            title: msds_upload.title || undefined,
+            supplier: msds_upload.supplier || undefined,
+            revisionDate: msds_upload.revision_date || undefined,
+            action: 'UPLOAD',
+          });
+          toast.success('Chemical and MSDS added successfully');
+        } else {
+          toast.success('Chemical added successfully');
+        }
       }
       loadData();
       setSelectedItem(null);
@@ -412,6 +463,83 @@ export default function Chemicals() {
     setShowDetailDrawer(true);
   };
 
+  const canManageMsds = isAdminProfile(userProfile);
+
+  const handleViewMsds = async (target) => {
+    const msdsId = target?.msds_current_id || target?.id;
+    if (!msdsId) {
+      toast.error('No MSDS available');
+      return;
+    }
+
+    try {
+      const signedUrl = await getSignedMsdsUrl(msdsId, 'view');
+      setViewerSignedUrl(signedUrl);
+      if (target?.name) setMsdsContextItem(target);
+      setShowMsdsViewer(true);
+    } catch (error) {
+      toast.error(error.message || 'Unable to open MSDS');
+    }
+  };
+
+  const handleDownloadMsds = async (target) => {
+    const msdsId = target?.msds_current_id || target?.id;
+    if (!msdsId) {
+      toast.error('No MSDS available');
+      return;
+    }
+    try {
+      const signedUrl = await getSignedMsdsUrl(msdsId, 'download');
+      window.open(signedUrl, '_blank', 'noopener,noreferrer');
+    } catch (error) {
+      toast.error(error.message || 'Unable to download MSDS');
+    }
+  };
+
+  const handleOpenHistory = (item) => {
+    setMsdsContextItem(item);
+    setShowMsdsHistory(true);
+  };
+
+  const handleOpenUpload = (item) => {
+    setMsdsContextItem(item);
+    setShowMsdsUpload(true);
+  };
+
+  const handleRemoveMsds = async (item) => {
+    if (!canManageMsds) return;
+    const shouldDetach = window.confirm(`Remove current MSDS from ${item.name}?`);
+    if (!shouldDetach) return;
+    const archiveCurrent = window.confirm('Archive the current MSDS version as inactive as well?');
+
+    try {
+      await removeCurrentMsds(item.id, { archiveCurrent });
+      toast.success('MSDS detached from chemical');
+      loadData();
+    } catch (error) {
+      toast.error(error.message || 'Failed to remove MSDS');
+    }
+  };
+
+  const handleUploadOrReplaceMsds = async (payload) => {
+    if (!msdsContextItem) return;
+    await uploadMsdsVersion({
+      chemicalId: msdsContextItem.id,
+      file: payload.file,
+      title: payload.title,
+      supplier: payload.supplier,
+      revisionDate: payload.revisionDate,
+      action: msdsContextItem.msds_current_id ? 'REPLACE' : 'UPLOAD',
+    });
+    toast.success(msdsContextItem.msds_current_id ? 'MSDS replaced successfully' : 'MSDS uploaded successfully');
+    await loadData();
+  };
+
+  const loadCurrentHistory = useCallback(async () => {
+    if (!msdsContextItem?.id) return [];
+    return listMsdsHistory(msdsContextItem.id);
+  }, [msdsContextItem]);
+
   const activeCount = items.filter(i => i.status === 'active' || !i.status).length;
   const selectedItemObjects = filteredAndSortedItems.filter(i => selectedIds.includes(i.id));
 
@@ -479,7 +607,7 @@ export default function Chemicals() {
 
       {/* Table */}
       <ItemsTableWithSelection
-        items={filteredAndSortedItems}
+        items={paginatedItems}
         isLoading={isLoading}
         isFetching={isFetching}
         category="chemical"
@@ -497,7 +625,23 @@ export default function Chemicals() {
         onRestock={(item) => { setSelectedItem(item); setShowRestockDialog(true); }}
         onAdjust={(item) => { setSelectedItem(item); setShowAdjustDialog(true); }}
         onDispose={(item) => { setSelectedItem(item); setShowDisposeDialog(true); }}
+        onViewMsds={handleViewMsds}
+        onDownloadMsds={handleDownloadMsds}
+        onShowMsdsHistory={handleOpenHistory}
+        onUploadOrReplaceMsds={handleOpenUpload}
+        onRemoveMsds={handleRemoveMsds}
+        canManageMsds={canManageMsds}
       />
+      {!isLoading && (
+        <TablePagination
+          totalItems={filteredAndSortedItems.length}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="items"
+        />
+      )}
 
       {/* Item Detail Drawer */}
       <ItemDetailDrawer
@@ -509,6 +653,50 @@ export default function Chemicals() {
         onAdjust={(item) => { setShowDetailDrawer(false); setSelectedItem(item); setShowAdjustDialog(true); }}
         onDispose={(item) => { setShowDetailDrawer(false); setSelectedItem(item); setShowDisposeDialog(true); }}
         onEdit={(item) => { setShowDetailDrawer(false); setSelectedItem(item); setShowForm(true); }}
+        onViewMsds={(item) => { setMsdsContextItem(item); handleViewMsds(item); }}
+        onDownloadMsds={handleDownloadMsds}
+        onShowMsdsHistory={handleOpenHistory}
+        onUploadOrReplaceMsds={handleOpenUpload}
+        onRemoveMsds={handleRemoveMsds}
+        canManageMsds={canManageMsds}
+      />
+
+      <MsdsViewerModal
+        open={showMsdsViewer}
+        onOpenChange={setShowMsdsViewer}
+        signedUrl={viewerSignedUrl}
+        chemicalName={msdsContextItem?.name}
+      />
+
+      <MsdsUploadDialog
+        open={showMsdsUpload}
+        onOpenChange={setShowMsdsUpload}
+        chemicalName={msdsContextItem?.name}
+        mode={msdsContextItem?.msds_current_id ? 'replace' : 'upload'}
+        onSubmit={handleUploadOrReplaceMsds}
+      />
+
+      <MsdsHistoryModal
+        open={showMsdsHistory}
+        onOpenChange={setShowMsdsHistory}
+        chemicalName={msdsContextItem?.name}
+        currentMsdsId={msdsContextItem?.msds_current_id || null}
+        canManage={canManageMsds}
+        loadHistory={loadCurrentHistory}
+        onView={handleViewMsds}
+        onDownload={handleDownloadMsds}
+        onSetCurrent={async (doc) => {
+          if (!msdsContextItem?.id) return;
+          await setCurrentMsds(msdsContextItem.id, doc.id);
+          setMsdsContextItem((prev) => (prev ? { ...prev, msds_current_id: doc.id, msds_current: doc } : prev));
+          toast.success(`Set v${doc.version} as current MSDS`);
+          await loadData();
+        }}
+        onArchive={async (doc) => {
+          await archiveMsdsVersion(doc.id);
+          toast.success(`Archived MSDS v${doc.version}`);
+          await loadData();
+        }}
       />
 
       {/* Dialogs */}

@@ -111,6 +111,8 @@ const normalizeItem = (row) => ({
   opened_count: row?.opened_count ?? null,
   created_date: row?.created_date || row?.created_at || null,
   updated_date: row?.updated_date || row?.updated_at || null,
+  msds_current_id: row?.msds_current_id || null,
+  msds_current: row?.msds_current || null,
 });
 
 const ITEM_LIST_COLUMNS = [
@@ -142,6 +144,8 @@ const ITEM_LIST_COLUMNS = [
   'lot_number',
   'opened_date',
   'location',
+  'msds_current_id',
+  'msds_current:msds_current_id(id, version, title, supplier, revision_date, language, file_name, file_size, uploaded_at, is_active)',
   'created_at',
   'updated_at',
 ].join(', ');

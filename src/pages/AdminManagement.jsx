@@ -62,6 +62,7 @@ import { format } from 'date-fns';
 import { toast } from 'sonner';
 import { createPageUrl } from '../utils';
 import { listProfiles, getProfileByUserId, updateProfileById } from '@/api/profilesDataClient';
+import TablePagination from '@/components/ui/table-pagination';
 
 export default function AdminManagement() {
   const [profiles, setProfiles] = useState([]);
@@ -75,6 +76,8 @@ export default function AdminManagement() {
   const [newUserEmail, setNewUserEmail] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isInviting, setIsInviting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
 
   useEffect(() => {
     loadData();
@@ -89,7 +92,7 @@ export default function AdminManagement() {
       }
       setCurrentUser(user);
       
-      const allProfiles = await listProfiles(100);
+      const allProfiles = await listProfiles(1000);
       setProfiles(allProfiles);
       
       const userProfile = allProfiles.find(p => p.id === user.id) || await getProfileByUserId(user.id, user.email, user.user_metadata);
@@ -183,6 +186,18 @@ export default function AdminManagement() {
 
   const activeProfiles = profiles.filter(p => p.is_active !== false);
   const superAdminCount = activeProfiles.filter(p => p.role === 'super_admin').length;
+  const paginatedProfiles = profiles.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(profiles.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [profiles.length, currentPage, pageSize]);
 
   return (
     <div className="space-y-6">
@@ -238,7 +253,7 @@ export default function AdminManagement() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {profiles.map((profile) => {
+                {paginatedProfiles.map((profile) => {
                   const isCurrentUser = profile.id === currentUser?.id;
                   const isActive = profile.is_active !== false;
                   
@@ -347,6 +362,17 @@ export default function AdminManagement() {
                 })}
               </TableBody>
             </Table>
+          )}
+          {!isLoading && (
+            <TablePagination
+              totalItems={profiles.length}
+              currentPage={currentPage}
+              pageSize={pageSize}
+              onPageChange={setCurrentPage}
+              onPageSizeChange={setPageSize}
+              itemLabel="users"
+              className="mt-4 rounded-lg border border-slate-200"
+            />
           )}
         </CardContent>
       </Card>

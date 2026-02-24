@@ -18,6 +18,7 @@ import InventoryFilters from '../components/inventory/InventoryFilters';
 import { formatLocation } from '../components/inventory/ItemsTable';
 import { safeUseItem, restockItem, adjustItemStock, archiveItem, restoreItem, disposeItem } from '../components/inventory/inventoryHelpers';
 import useDebounce from '@/hooks/useDebounce';
+import TablePagination from '@/components/ui/table-pagination';
 
 export default function Consumables() {
   const [items, setItems] = useState([]);
@@ -43,6 +44,8 @@ export default function Consumables() {
   const [showDetailDrawer, setShowDetailDrawer] = useState(false);
   const [userProfile, setUserProfile] = useState(null);
   const [highlightedId, setHighlightedId] = useState(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
   const isFirstLoadRef = useRef(true);
 
   useEffect(() => {
@@ -205,6 +208,22 @@ export default function Consumables() {
     return result;
   }, [items, debouncedSearch, statusFilter, roomFilter, storageFilter, stockFilter, sortConfig]);
 
+  const paginatedItems = useMemo(() => {
+    const start = (currentPage - 1) * pageSize;
+    return filteredAndSortedItems.slice(start, start + pageSize);
+  }, [filteredAndSortedItems, currentPage, pageSize]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [debouncedSearch, statusFilter, roomFilter, storageFilter, stockFilter, quickFilter, pageSize]);
+
+  useEffect(() => {
+    const totalPages = Math.max(1, Math.ceil(filteredAndSortedItems.length / pageSize));
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages);
+    }
+  }, [filteredAndSortedItems.length, currentPage, pageSize]);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -221,6 +240,7 @@ export default function Consumables() {
     setStockFilter('all');
     setQuickFilter('all');
     setSortConfig({ key: 'name', direction: 'asc' });
+    setCurrentPage(1);
   };
 
   const handleSave = async (formData) => {
@@ -441,7 +461,7 @@ export default function Consumables() {
       </div>
 
       <ItemsTableWithSelection
-        items={filteredAndSortedItems}
+        items={paginatedItems}
         isLoading={isLoading}
         isFetching={isFetching}
         category="consumable"
@@ -460,6 +480,16 @@ export default function Consumables() {
         onAdjust={(item) => { setSelectedItem(item); setShowAdjustDialog(true); }}
         onDispose={(item) => { setSelectedItem(item); setShowDisposeDialog(true); }}
       />
+      {!isLoading && (
+        <TablePagination
+          totalItems={filteredAndSortedItems.length}
+          currentPage={currentPage}
+          pageSize={pageSize}
+          onPageChange={setCurrentPage}
+          onPageSizeChange={setPageSize}
+          itemLabel="items"
+        />
+      )}
 
       <ItemDetailDrawer
         item={selectedItem}

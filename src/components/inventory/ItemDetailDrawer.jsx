@@ -103,7 +103,7 @@ export default function ItemDetailDrawer({
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
-      <SheetContent className="w-full sm:max-w-md overflow-y-auto">
+      <SheetContent className="w-full sm:max-w-md overflow-y-auto no-scrollbar">
         <SheetHeader className="pb-4 border-b">
           <div className="flex items-start gap-3">
             <div className={`w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 ${

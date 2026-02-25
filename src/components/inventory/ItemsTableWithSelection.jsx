@@ -35,11 +35,7 @@ import {
   ArrowUp,
   ArrowDown,
   ArrowUpDown,
-  Eye,
-  Download,
-  History,
-  Upload,
-  FileX
+  Eye
 } from 'lucide-react';
 import { Skeleton } from '@/components/ui/skeleton';
 import { formatLocation } from './ItemsTable';
@@ -83,11 +79,6 @@ export default function ItemsTableWithSelection({
   onAdjust,
   onDispose,
   onViewMsds,
-  onDownloadMsds,
-  onShowMsdsHistory,
-  onUploadOrReplaceMsds,
-  onRemoveMsds,
-  canManageMsds = false,
 }) {
   const defaultSort = { key: 'name', direction: 'asc' };
   const currentSort = sortConfig || defaultSort;
@@ -427,41 +418,6 @@ export default function ItemsTableWithSelection({
                               <Eye className="w-4 h-4 mr-2" />
                               View MSDS
                             </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onDownloadMsds?.(item)}
-                              disabled={!item.msds_current_id}
-                              aria-label={`Download MSDS for ${item.name}`}
-                            >
-                              <Download className="w-4 h-4 mr-2" />
-                              Download MSDS
-                            </DropdownMenuItem>
-                            <DropdownMenuItem
-                              onClick={() => onShowMsdsHistory?.(item)}
-                              aria-label={`MSDS history for ${item.name}`}
-                            >
-                              <History className="w-4 h-4 mr-2" />
-                              MSDS History
-                            </DropdownMenuItem>
-                            {canManageMsds && (
-                              <>
-                                <DropdownMenuItem
-                                  onClick={() => onUploadOrReplaceMsds?.(item)}
-                                  aria-label={`${item.msds_current_id ? 'Replace' : 'Upload'} MSDS for ${item.name}`}
-                                >
-                                  <Upload className="w-4 h-4 mr-2" />
-                                  {item.msds_current_id ? 'Replace MSDS' : 'Upload MSDS'}
-                                </DropdownMenuItem>
-                                <DropdownMenuItem
-                                  onClick={() => onRemoveMsds?.(item)}
-                                  disabled={!item.msds_current_id}
-                                  className="text-red-600 focus:text-red-600"
-                                  aria-label={`Remove MSDS for ${item.name}`}
-                                >
-                                  <FileX className="w-4 h-4 mr-2" />
-                                  Remove MSDS
-                                </DropdownMenuItem>
-                              </>
-                            )}
                             <DropdownMenuSeparator />
                           </>
                         )}

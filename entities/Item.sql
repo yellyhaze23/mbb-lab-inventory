@@ -53,10 +53,6 @@
       "default": 0,
       "description": "Minimum stock level for alerts"
     },
-    "qr_code_value": {
-      "type": "string",
-      "description": "Unique QR code identifier (legacy)"
-    },
     "description": {
       "type": "string",
       "description": "Additional notes about the item"

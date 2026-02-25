@@ -35,10 +35,6 @@ import {
   TRACKING_TYPES,
 } from '@/constants/measurement';
 
-const generateQRCode = () => {
-  return `LAB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-};
-
 const getTrackingTypeOptions = (category) => ([
   { value: 'SIMPLE_MEASURE', label: 'Simple Measure' },
   { value: 'UNIT_ONLY', label: 'Unit Only' },
@@ -169,7 +165,6 @@ const getInitialFormData = (category) => ({
   project_fund_source: '',
   expiration_date: '',
   minimum_stock: 0,
-  qr_code_value: '',
   description: '',
   supplier: '',
   status: 'active',
@@ -219,7 +214,6 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         project_fund_source: item.project_fund_source || '',
         expiration_date: item.expiration_date || '',
         minimum_stock: item.minimum_stock || 0,
-        qr_code_value: item.qr_code_value || '',
         description: item.description || '',
         supplier: item.supplier || '',
         status: item.status || 'active',
@@ -228,10 +222,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         opened_date: item.opened_date || '',
       });
     } else {
-      setFormData({
-        ...getInitialFormData(category),
-        qr_code_value: generateQRCode(),
-      });
+      setFormData(getInitialFormData(category));
     }
     setMsdsFile(null);
     setMsdsTitle('');

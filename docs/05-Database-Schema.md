@@ -35,7 +35,6 @@ Purpose: inventory master records for chemicals and consumables.
 | project_fund_source | text | nullable |
 | expiration_date | date | nullable |
 | minimum_stock | numeric | default `0` |
-| qr_code_value | text | nullable |
 | description | text | nullable |
 | supplier | text | nullable |
 | status | text | check: `active`/`archived`/`disposed` |
@@ -197,4 +196,3 @@ erDiagram
 ## Storage Buckets and Object Policy Notes
 - `avatars` bucket (public read, owner write/update/delete).
 - `msds` bucket (private, PDF-only, 15MB limit; authenticated read + admin mutate policies).
-

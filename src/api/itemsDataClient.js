@@ -175,7 +175,6 @@ const ITEM_LIST_COLUMNS = [
   'project_fund_source',
   'expiration_date',
   'minimum_stock',
-  'qr_code_value',
   'description',
   'supplier',
   'status',
@@ -189,15 +188,77 @@ const ITEM_LIST_COLUMNS = [
   'updated_at',
 ].join(', ');
 
+const LEGACY_ITEM_LIST_COLUMNS = [
+  'id',
+  'name',
+  'category',
+  'quantity',
+  'unit',
+  'tracking_type',
+  'quantity_value',
+  'quantity_unit',
+  'unit_type',
+  'total_units',
+  'content_per_unit',
+  'content_label',
+  'total_content',
+  'room_area',
+  'storage_type',
+  'storage_number',
+  'position',
+  'project_fund_source',
+  'expiration_date',
+  'minimum_stock',
+  'description',
+  'supplier',
+  'status',
+  'date_received',
+  'lot_number',
+  'opened_date',
+  'location',
+  'msds_current_id',
+  'msds_current:msds_current_id(id, version, title, supplier, revision_date, language, file_name, file_size, uploaded_at, is_active)',
+  'created_at',
+  'updated_at',
+].join(', ');
+
+const isSchemaMismatchError = (error) => {
+  const message = String(error?.message || '');
+  const details = String(error?.details || '');
+  return (
+    message.includes('Could not find') ||
+    message.includes('column') ||
+    message.includes('does not exist') ||
+    details.includes('does not exist')
+  );
+};
+
+const runItemListQuery = async (buildQuery) => {
+  let result = await buildQuery(ITEM_LIST_COLUMNS);
+  if (!result.error) return result;
+  if (!isSchemaMismatchError(result.error)) return result;
+  result = await buildQuery(LEGACY_ITEM_LIST_COLUMNS);
+  return result;
+};
+
 const withContainerStats = async (items = []) => {
   const packItems = items.filter((item) => item.tracking_type === TRACKING_TYPES.PACK_WITH_CONTENT);
   if (packItems.length === 0) return items;
 
   const itemIds = packItems.map((item) => item.id);
-  const { data: containers, error } = await supabase
+  let { data: containers, error } = await supabase
     .from('item_containers')
     .select('item_id, status, remaining_content')
     .in('item_id', itemIds);
+
+  if (error && isSchemaMismatchError(error)) {
+    const retry = await supabase
+      .from('item_containers')
+      .select('item_id, status, sealed_count, opened_content_remaining')
+      .in('item_id', itemIds);
+    containers = retry.data;
+    error = retry.error;
+  }
 
   if (error) throw error;
 
@@ -209,7 +270,7 @@ const withContainerStats = async (items = []) => {
     const current = stats.get(row.item_id);
     const normalizedStatus = String(row.status || '').toLowerCase();
     if (normalizedStatus === 'sealed') {
-      current.sealed_count += 1;
+      current.sealed_count += Number(row.sealed_count || 1);
     } else if (normalizedStatus === 'opened') {
       current.opened_count += 1;
     } else if (normalizedStatus === 'empty') {
@@ -230,11 +291,13 @@ const withContainerStats = async (items = []) => {
 };
 
 export const listAllItems = async (limit = 1000) => {
-  const { data, error } = await supabase
-    .from('items')
-    .select(ITEM_LIST_COLUMNS)
-    .order('created_at', { ascending: false })
-    .limit(limit);
+  const { data, error } = await runItemListQuery((columns) => (
+    supabase
+      .from('items')
+      .select(columns)
+      .order('created_at', { ascending: false })
+      .limit(limit)
+  ));
 
   if (error) throw error;
   const normalized = (data || []).map(normalizeItem);
@@ -243,30 +306,32 @@ export const listAllItems = async (limit = 1000) => {
 
 export const listItemsByCategory = async (category, options = {}) => {
   const { limit = 1000, search = '' } = options;
-  let query = supabase
-    .from('items')
-    .select(ITEM_LIST_COLUMNS)
-    .eq('category', category)
-    .order('created_at', { ascending: false })
-    .limit(limit);
-
   const trimmedSearch = search.trim();
-  if (trimmedSearch) {
-    query = query.or(
-      [
-        `name.ilike.%${trimmedSearch}%`,
-        `room_area.ilike.%${trimmedSearch}%`,
-        `storage_type.ilike.%${trimmedSearch}%`,
-        `storage_number.ilike.%${trimmedSearch}%`,
-        `position.ilike.%${trimmedSearch}%`,
-        `lot_number.ilike.%${trimmedSearch}%`,
-        `project_fund_source.ilike.%${trimmedSearch}%`,
-        `supplier.ilike.%${trimmedSearch}%`,
-      ].join(',')
-    );
-  }
+  const { data, error } = await runItemListQuery((columns) => {
+    let query = supabase
+      .from('items')
+      .select(columns)
+      .eq('category', category)
+      .order('created_at', { ascending: false })
+      .limit(limit);
 
-  const { data, error } = await query;
+    if (trimmedSearch) {
+      query = query.or(
+        [
+          `name.ilike.%${trimmedSearch}%`,
+          `room_area.ilike.%${trimmedSearch}%`,
+          `storage_type.ilike.%${trimmedSearch}%`,
+          `storage_number.ilike.%${trimmedSearch}%`,
+          `position.ilike.%${trimmedSearch}%`,
+          `lot_number.ilike.%${trimmedSearch}%`,
+          `project_fund_source.ilike.%${trimmedSearch}%`,
+          `supplier.ilike.%${trimmedSearch}%`,
+        ].join(',')
+      );
+    }
+
+    return query;
+  });
 
   if (error) throw error;
   const normalized = (data || []).map(normalizeItem);

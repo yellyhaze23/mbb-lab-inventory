@@ -283,26 +283,6 @@ export const createItemForCategory = async (category, payload) => {
 
   if (error) throw error;
 
-  if (prepared.tracking_type === 'PACK_WITH_CONTENT' && data?.id) {
-    const totalUnits = prepared.total_units || 0;
-    const contentPerUnit = prepared.content_per_unit || 0;
-    const contentUnit = prepared.content_unit || prepared.content_label;
-    const alreadyOpened = Boolean(payload?.already_opened);
-    const openedRemaining = toNumberOrNull(payload?.opened_pack_remaining_content);
-    const rows = Array.from({ length: totalUnits }, (_, idx) => ({
-      item_id: data.id,
-      container_index: idx + 1,
-      status: alreadyOpened && idx === 0 ? 'opened' : 'sealed',
-      initial_content: contentPerUnit,
-      remaining_content: alreadyOpened && idx === 0 && openedRemaining !== null
-        ? Math.max(0, Math.min(contentPerUnit, openedRemaining))
-        : contentPerUnit,
-      content_unit: contentUnit,
-    }));
-    const { error: insertContainersError } = await supabase.from('item_containers').insert(rows);
-    if (insertContainersError) throw insertContainersError;
-  }
-
   return data;
 };
 

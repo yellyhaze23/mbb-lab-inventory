@@ -61,11 +61,7 @@ describe('createItemForCategory', () => {
     const itemInsert = inserts.find((i) => i.table === 'items')?.payload;
     expect(itemInsert.total_content).toBe(100);
     expect(itemInsert.content_unit).toBe('g');
-
-    const containerInsert = inserts.find((i) => i.table === 'item_containers')?.payload;
-    expect(containerInsert).toHaveLength(2);
-    expect(containerInsert[0]).toMatchObject({ status: 'sealed', remaining_content: 50, content_unit: 'g' });
-    expect(containerInsert[1]).toMatchObject({ status: 'sealed', remaining_content: 50, content_unit: 'g' });
+    expect(inserts.some((i) => i.table === 'item_containers')).toBe(false);
   });
 
   it('rejects chemical payload with consumable content unit', async () => {

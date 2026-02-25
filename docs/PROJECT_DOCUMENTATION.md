@@ -1106,6 +1106,9 @@ npm run preview
 npm run lint
 npm run lint:fix
 npm run typecheck
+npm run test:unit
+npm run test:integration
+npm test
 ```
 
 ## Suggested Branching Strategy
@@ -1143,8 +1146,16 @@ feat: add msds history modal actions
 7. Validate with `lint` + `build`.
 
 ## Testing Status
-- Automated test suite: **Not found in codebase; may be planned.**
-- Current validation style is build/lint + manual functional checks.
+- Automated test suite is configured with **Vitest**.
+- Unit tests: `npm run test:unit`
+- Integration tests: `npm run test:integration`
+- Combined run: `npm test`
+
+Latest recorded run (February 25, 2026):
+- `test:unit`: 8 passed
+- `test:integration`: 3 passed
+- `typecheck`: passed
+- `lint`: passed
 
 ## Code Review Checklist (Practical)
 - [ ] No direct role trust in frontend-only checks for critical actions.
@@ -1153,4 +1164,3 @@ feat: add msds history modal actions
 - [ ] Inventory calculations do not allow negative stock.
 - [ ] UI loading/error states are covered.
 - [ ] Build and lint pass locally.
-

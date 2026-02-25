@@ -15,6 +15,7 @@ npm run build
 ```
 
 ## Documentation
+- [Project Documentation (Single File)](./docs/PROJECT_DOCUMENTATION.md)
 - [00 - Overview](./docs/00-Overview.md)
 - [01 - Features](./docs/01-Features.md)
 - [02 - User Roles and Permissions](./docs/02-User-Roles-and-Permissions.md)
@@ -49,4 +50,3 @@ _(Insert screenshot)_
 
 ## License
 Proprietary / Academic use.
-

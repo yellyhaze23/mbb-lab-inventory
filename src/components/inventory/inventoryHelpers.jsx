@@ -16,6 +16,7 @@ const mapRpcResult = (data) => ({
   trackingType: data?.tracking_type,
   sealedCount: data?.sealed_count,
   openedCount: data?.opened_count,
+  emptyCount: data?.empty_count,
   totalUnits: data?.total_units,
   totalContent: data?.total_content,
   quantityValue: data?.quantity_value,

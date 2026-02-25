@@ -51,6 +51,7 @@ export default function ItemDetailDrawer({
   const isActive = item.status === 'active' || !item.status;
   const location = formatLocation(item);
   const trackingType = item.tracking_type || 'SIMPLE_MEASURE';
+  const contentUnit = item.content_unit || item.total_content_unit || item.content_label || 'pcs';
   const quantityValue = trackingType === 'SIMPLE_MEASURE'
     ? (item.quantity_value ?? item.quantity ?? 0)
     : (item.total_units ?? item.quantity ?? 0);
@@ -167,7 +168,7 @@ export default function ItemDetailDrawer({
                   )}
                   {trackingType === 'PACK_WITH_CONTENT' && (
                     <span className="text-slate-500 text-xs block mt-1">
-                      {item.total_content ?? 0} {item.content_label || 'pcs'} | Sealed: {item.sealed_count ?? 0} / Opened: {item.opened_count ?? 0}
+                      {item.total_content ?? 0} {contentUnit} | Sealed: {item.sealed_count ?? 0} / Opened: {item.opened_count ?? 0} / Empty: {item.empty_count ?? 0}
                     </span>
                   )}
                 </span>

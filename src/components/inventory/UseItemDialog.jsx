@@ -15,6 +15,7 @@ import { AlertCircle, Loader2, FlaskConical, Package } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 
 const getTrackingType = (item) => item?.tracking_type || 'SIMPLE_MEASURE';
+const getContentUnit = (item) => item?.content_unit || item?.total_content_unit || item?.content_label || 'pcs';
 
 export default function UseItemDialog({ open, onOpenChange, item, onUse }) {
   const [mode, setMode] = useState('CONTENT');
@@ -56,7 +57,7 @@ export default function UseItemDialog({ open, onOpenChange, item, onUse }) {
       const sealed = item.sealed_count ?? 0;
       return `${sealed} sealed ${item.unit_type || item.unit}`;
     }
-    return `${item.total_content ?? 0} ${item.content_label || 'pcs'}`;
+    return `${item.total_content ?? 0} ${getContentUnit(item)}`;
   }, [item, isSimpleMeasure, isUnitOnly, mode]);
 
   const handleSubmit = async (e) => {
@@ -101,14 +102,9 @@ export default function UseItemDialog({ open, onOpenChange, item, onUse }) {
           return;
         }
       } else {
-        const asInt = Number.isInteger(numericAmount);
         const available = Number(item.total_content ?? 0);
-        if (!asInt) {
-          setError(`Content to deduct must be a whole number of ${item.content_label || 'pcs'}`);
-          return;
-        }
         if (numericAmount > available) {
-          setError(`Insufficient stock. Available: ${available} ${item.content_label || 'pcs'}`);
+          setError(`Insufficient stock. Available: ${available} ${getContentUnit(item)}`);
           return;
         }
       }
@@ -195,16 +191,21 @@ export default function UseItemDialog({ open, onOpenChange, item, onUse }) {
                 ? 'Amount to Deduct *'
                 : (isUnitOnly || mode === 'UNITS')
                   ? 'Units to Deduct *'
-                  : `Content to Deduct (${item.content_label || 'pcs'}) *`}
+                  : `Content to Deduct (${getContentUnit(item)}) *`}
             </Label>
             <div className="flex items-center gap-2">
               <Input
                 id="use_amount"
                 type="number"
                 min="0"
-                step={isSimpleMeasure ? '0.01' : '1'}
+                step={isSimpleMeasure || (isPackWithContent && mode === 'CONTENT') ? '0.01' : '1'}
                 value={amount}
-                onChange={(e) => setAmount(isSimpleMeasure ? parseFloat(e.target.value) || 0 : parseInt(e.target.value, 10) || 0)}
+                onChange={(e) => {
+                  const nextValue = (isSimpleMeasure || (isPackWithContent && mode === 'CONTENT'))
+                    ? parseFloat(e.target.value)
+                    : parseInt(e.target.value, 10);
+                  setAmount(Number.isFinite(nextValue) ? nextValue : 0);
+                }}
                 className="flex-1"
               />
               <span className="text-slate-500 font-medium">
@@ -212,7 +213,7 @@ export default function UseItemDialog({ open, onOpenChange, item, onUse }) {
                   ? (item.quantity_unit || item.unit)
                   : (isUnitOnly || mode === 'UNITS')
                     ? (item.unit_type || item.unit)
-                    : (item.content_label || 'pcs')}
+                    : getContentUnit(item)}
               </span>
             </div>
           </div>

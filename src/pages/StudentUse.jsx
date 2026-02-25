@@ -372,7 +372,7 @@ const getItemStatus = (item) => {
     if (trackingType === 'SIMPLE_MEASURE') return item?.quantity_unit || item?.unit || '';
     if (trackingType === 'UNIT_ONLY') return item?.unit_type || item?.unit || 'unit';
     if (mode === 'UNITS') return item?.unit_type || item?.unit || 'pack';
-    return item?.content_label || 'pcs';
+    return item?.content_unit || item?.total_content_unit || item?.content_label || 'pcs';
   };
 
   const adjustQuantity = (delta) => {
@@ -979,7 +979,7 @@ const getItemStatus = (item) => {
                             setFormError('');
                           }}
                         >
-                          Content ({selectedItem?.content_label || 'pcs'})
+                          Content ({selectedItem?.content_unit || selectedItem?.total_content_unit || selectedItem?.content_label || 'pcs'})
                         </Button>
                         <Button
                           type="button"
@@ -1171,7 +1171,7 @@ function ItemRow({ item, onSelect, getItemStatus, onViewMsds, isViewingMsds }) {
     ? `${item?.quantity_value ?? item?.quantity ?? 0} ${item?.quantity_unit || item?.unit || ''}`
     : trackingType === 'UNIT_ONLY'
       ? `${item?.total_units ?? item?.quantity ?? 0} ${item?.unit_type || item?.unit || 'unit'}`
-      : `${item?.total_units ?? item?.quantity ?? 0} ${item?.unit_type || item?.unit || 'pack'} - ${item?.total_content ?? 0} ${item?.content_label || 'pcs'}`;
+      : `${item?.total_units ?? item?.quantity ?? 0} ${item?.unit_type || item?.unit || 'pack'} - ${item?.total_content ?? 0} ${item?.content_unit || item?.total_content_unit || item?.content_label || 'pcs'}`;
   
   return (
     <div className={`w-full flex items-center gap-2 pr-2 transition-all duration-200 hover:bg-slate-50 active:bg-slate-100 ${isDisposed ? 'opacity-50' : ''}`}>

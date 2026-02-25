@@ -1,4 +1,9 @@
 import { supabase } from '@/lib/supabaseClient';
+import {
+  getDefaultContentUnitForCategory,
+  isValidContentUnitForCategory,
+  TRACKING_TYPES,
+} from '@/constants/measurement';
 
 const DATE_FIELDS = ['expiration_date', 'date_received', 'opened_date'];
 const UI_ONLY_FIELDS = ['already_opened', 'opened_pack_remaining_content'];
@@ -34,11 +39,12 @@ const toIntOrNull = (value) => {
 const normalizeTrackingPayload = (payload = {}) => {
   const uiAlreadyOpened = payload?.already_opened;
   const next = sanitizeItemPayload(payload);
-  const trackingType = next.tracking_type || 'SIMPLE_MEASURE';
+  const trackingType = next.tracking_type || TRACKING_TYPES.SIMPLE_MEASURE;
+  const category = next.category;
 
   next.tracking_type = trackingType;
 
-  if (trackingType === 'SIMPLE_MEASURE') {
+  if (trackingType === TRACKING_TYPES.SIMPLE_MEASURE) {
     const quantityValue = toNumberOrNull(next.quantity_value) ?? toNumberOrNull(next.quantity) ?? 0;
     const quantityUnit = (next.quantity_unit || next.unit || '').trim();
     next.quantity_value = quantityValue;
@@ -55,7 +61,9 @@ const normalizeTrackingPayload = (payload = {}) => {
         ? (next.opened_date || new Date().toISOString().slice(0, 10))
         : null;
     }
-  } else if (trackingType === 'UNIT_ONLY') {
+    next.content_unit = null;
+    next.total_content_unit = null;
+  } else if (trackingType === TRACKING_TYPES.UNIT_ONLY) {
     const totalUnits = toIntOrNull(next.total_units) ?? toIntOrNull(next.quantity) ?? 0;
     const unitType = (next.unit_type || next.unit || '').trim();
     next.total_units = totalUnits;
@@ -67,6 +75,8 @@ const normalizeTrackingPayload = (payload = {}) => {
     next.content_per_unit = null;
     next.total_content = null;
     next.content_label = null;
+    next.content_unit = null;
+    next.total_content_unit = null;
     if (typeof uiAlreadyOpened === 'boolean') {
       next.opened_date = uiAlreadyOpened
         ? (next.opened_date || new Date().toISOString().slice(0, 10))
@@ -74,14 +84,16 @@ const normalizeTrackingPayload = (payload = {}) => {
     }
   } else {
     const totalUnits = toIntOrNull(next.total_units) ?? toIntOrNull(next.quantity) ?? 0;
-    const contentPerUnit = toIntOrNull(next.content_per_unit) ?? 0;
+    const contentPerUnit = toNumberOrNull(next.content_per_unit) ?? 0;
     const unitType = (next.unit_type || next.unit || '').trim();
-    const contentLabel = (next.content_label || 'pcs').trim();
-    const totalContent = toIntOrNull(next.total_content) ?? (totalUnits * contentPerUnit);
+    const contentUnit = String(next.content_unit || next.total_content_unit || next.content_label || getDefaultContentUnitForCategory(category)).trim();
+    const totalContent = toNumberOrNull(next.total_content) ?? (totalUnits * contentPerUnit);
     next.total_units = totalUnits;
     next.content_per_unit = contentPerUnit;
     next.unit_type = unitType;
-    next.content_label = contentLabel || 'pcs';
+    next.content_unit = contentUnit;
+    next.total_content_unit = contentUnit;
+    next.content_label = contentUnit; // Legacy compatibility.
     next.total_content = totalContent;
     next.quantity = totalUnits;
     next.unit = unitType;
@@ -89,26 +101,47 @@ const normalizeTrackingPayload = (payload = {}) => {
     next.quantity_unit = null;
   }
 
+  if (trackingType === TRACKING_TYPES.PACK_WITH_CONTENT) {
+    if ((next.total_units ?? 0) < 1) {
+      throw new Error('Total units must be at least 1');
+    }
+    if ((next.content_per_unit ?? 0) <= 0) {
+      throw new Error('Content per unit must be greater than 0');
+    }
+    if (!isValidContentUnitForCategory(category, next.content_unit)) {
+      throw new Error(`Invalid content unit "${next.content_unit}" for ${category}`);
+    }
+  }
+
   return next;
 };
 
-const ensureCategory = (payload, category) => ({
-  ...normalizeTrackingPayload(payload),
-  category,
-});
+const ensureCategory = (payload, category) => (
+  normalizeTrackingPayload({
+    ...payload,
+    category,
+  })
+);
 
 const normalizeItem = (row) => ({
   ...row,
-  tracking_type: row?.tracking_type || 'SIMPLE_MEASURE',
+  tracking_type: row?.tracking_type || TRACKING_TYPES.SIMPLE_MEASURE,
   quantity_value: row?.quantity_value,
   quantity_unit: row?.quantity_unit,
   unit_type: row?.unit_type,
   total_units: row?.total_units,
   content_per_unit: row?.content_per_unit,
-  content_label: row?.content_label,
+  content_unit: row?.content_unit || row?.total_content_unit || row?.content_label || null,
+  content_label: row?.content_label || row?.content_unit || row?.total_content_unit || null,
+  total_content_unit: row?.total_content_unit || row?.content_unit || row?.content_label || null,
   total_content: row?.total_content,
+  opened_units: row?.opened_units ?? null,
+  sealed_units: row?.sealed_units ?? null,
+  status_summary: row?.status_summary ?? null,
+  needs_measurement_data: Boolean(row?.needs_measurement_data),
   sealed_count: row?.sealed_count ?? null,
   opened_count: row?.opened_count ?? null,
+  empty_count: row?.empty_count ?? null,
   created_date: row?.created_date || row?.created_at || null,
   updated_date: row?.updated_date || row?.updated_at || null,
   msds_current_id: row?.msds_current_id || null,
@@ -127,8 +160,14 @@ const ITEM_LIST_COLUMNS = [
   'unit_type',
   'total_units',
   'content_per_unit',
+  'content_unit',
+  'total_content_unit',
   'content_label',
   'total_content',
+  'opened_units',
+  'sealed_units',
+  'status_summary',
+  'needs_measurement_data',
   'room_area',
   'storage_type',
   'storage_number',
@@ -151,13 +190,13 @@ const ITEM_LIST_COLUMNS = [
 ].join(', ');
 
 const withContainerStats = async (items = []) => {
-  const packItems = items.filter((item) => item.tracking_type === 'PACK_WITH_CONTENT');
+  const packItems = items.filter((item) => item.tracking_type === TRACKING_TYPES.PACK_WITH_CONTENT);
   if (packItems.length === 0) return items;
 
   const itemIds = packItems.map((item) => item.id);
   const { data: containers, error } = await supabase
     .from('item_containers')
-    .select('item_id, status, sealed_count, opened_content_remaining')
+    .select('item_id, status, remaining_content')
     .in('item_id', itemIds);
 
   if (error) throw error;
@@ -165,23 +204,27 @@ const withContainerStats = async (items = []) => {
   const stats = new Map();
   for (const row of containers || []) {
     if (!stats.has(row.item_id)) {
-      stats.set(row.item_id, { sealed_count: 0, opened_count: 0 });
+      stats.set(row.item_id, { sealed_count: 0, opened_count: 0, empty_count: 0 });
     }
     const current = stats.get(row.item_id);
-    if (row.status === 'SEALED') {
-      current.sealed_count = row.sealed_count || 0;
-    } else if (row.status === 'OPENED') {
+    const normalizedStatus = String(row.status || '').toLowerCase();
+    if (normalizedStatus === 'sealed') {
+      current.sealed_count += 1;
+    } else if (normalizedStatus === 'opened') {
       current.opened_count += 1;
+    } else if (normalizedStatus === 'empty') {
+      current.empty_count += 1;
     }
   }
 
   return items.map((item) => {
-    if (item.tracking_type !== 'PACK_WITH_CONTENT') return item;
-    const current = stats.get(item.id) || { sealed_count: 0, opened_count: 0 };
+    if (item.tracking_type !== TRACKING_TYPES.PACK_WITH_CONTENT) return item;
+    const current = stats.get(item.id) || { sealed_count: 0, opened_count: 0, empty_count: 0 };
     return {
       ...item,
       sealed_count: current.sealed_count,
       opened_count: current.opened_count,
+      empty_count: current.empty_count,
     };
   });
 };
@@ -242,55 +285,22 @@ export const createItemForCategory = async (category, payload) => {
 
   if (prepared.tracking_type === 'PACK_WITH_CONTENT' && data?.id) {
     const totalUnits = prepared.total_units || 0;
-    const alreadyOpened = Boolean(payload?.already_opened);
-    const openedRemaining = toIntOrNull(payload?.opened_pack_remaining_content);
     const contentPerUnit = prepared.content_per_unit || 0;
-
-    const setSealedRow = async (sealedCount) => {
-      const { data: existingSealed, error: getSealedError } = await supabase
-        .from('item_containers')
-        .select('id')
-        .eq('item_id', data.id)
-        .eq('status', 'SEALED')
-        .maybeSingle();
-      if (getSealedError) throw getSealedError;
-
-      if (existingSealed?.id) {
-        const { error: updateSealedError } = await supabase
-          .from('item_containers')
-          .update({ sealed_count: sealedCount })
-          .eq('id', existingSealed.id);
-        if (updateSealedError) throw updateSealedError;
-      } else {
-        const { error: insertSealedError } = await supabase
-          .from('item_containers')
-          .insert({ item_id: data.id, status: 'SEALED', sealed_count: sealedCount });
-        if (insertSealedError) throw insertSealedError;
-      }
-    };
-
-    if (alreadyOpened && totalUnits > 0 && openedRemaining !== null && openedRemaining >= 0) {
-      const sealedCount = Math.max(totalUnits - 1, 0);
-      await setSealedRow(sealedCount);
-
-      const { error: openedError } = await supabase
-        .from('item_containers')
-        .insert({
-          item_id: data.id,
-          status: 'OPENED',
-          opened_content_remaining: openedRemaining,
-        });
-      if (openedError) throw openedError;
-
-      const nextTotalContent = sealedCount * contentPerUnit + openedRemaining;
-      const { error: updateItemError } = await supabase
-        .from('items')
-        .update({ total_content: nextTotalContent })
-        .eq('id', data.id);
-      if (updateItemError) throw updateItemError;
-    } else {
-      await setSealedRow(totalUnits);
-    }
+    const contentUnit = prepared.content_unit || prepared.content_label;
+    const alreadyOpened = Boolean(payload?.already_opened);
+    const openedRemaining = toNumberOrNull(payload?.opened_pack_remaining_content);
+    const rows = Array.from({ length: totalUnits }, (_, idx) => ({
+      item_id: data.id,
+      container_index: idx + 1,
+      status: alreadyOpened && idx === 0 ? 'opened' : 'sealed',
+      initial_content: contentPerUnit,
+      remaining_content: alreadyOpened && idx === 0 && openedRemaining !== null
+        ? Math.max(0, Math.min(contentPerUnit, openedRemaining))
+        : contentPerUnit,
+      content_unit: contentUnit,
+    }));
+    const { error: insertContainersError } = await supabase.from('item_containers').insert(rows);
+    if (insertContainersError) throw insertContainersError;
   }
 
   return data;

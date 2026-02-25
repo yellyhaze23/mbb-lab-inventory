@@ -280,7 +280,7 @@ export default function ItemsTable({
                   )}
                   {trackingType === 'PACK_WITH_CONTENT' && (
                     <div className="text-xs text-slate-500 mt-1">
-                      {(item.total_content ?? 0)} {(item.content_label || 'pcs')} | Sealed: {item.sealed_count ?? 0} / Opened: {item.opened_count ?? 0}
+                      {(item.total_content ?? 0)} {(item.content_unit || item.total_content_unit || item.content_label || 'pcs')} | Sealed: {item.sealed_count ?? 0} / Opened: {item.opened_count ?? 0} / Empty: {item.empty_count ?? 0}
                     </div>
                   )}
                   {trackingType !== 'PACK_WITH_CONTENT' && (

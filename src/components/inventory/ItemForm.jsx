@@ -26,20 +26,27 @@ import {
 } from '@/components/ui/dialog';
 import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { validateMsdsFile } from '@/api/msdsService';
+import {
+  CATEGORY_CONTAINER_TYPES,
+  CATEGORY_CONTENT_UNITS,
+  getDefaultContainerTypeForCategory,
+  getDefaultContentUnitForCategory,
+  isValidContentUnitForCategory,
+  TRACKING_TYPES,
+} from '@/constants/measurement';
 
 const generateQRCode = () => {
   return `LAB-${Date.now()}-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
 };
 
-const TRACKING_TYPES = [
+const getTrackingTypeOptions = (category) => ([
   { value: 'SIMPLE_MEASURE', label: 'Simple Measure' },
   { value: 'UNIT_ONLY', label: 'Unit Only' },
-  { value: 'PACK_WITH_CONTENT', label: 'Pack With Content' },
-];
-
-const MEASURE_UNIT_OPTIONS = ['g', 'mg', 'kg', 'mL', 'L', 'uL', 'ug', 'mol', 'mmol'];
-const UNIT_TYPE_OPTIONS = ['box', 'pack', 'bag', 'bottle', 'kit', 'container', 'other'];
-const CONTENT_LABEL_OPTIONS = ['pcs', 'preps', 'tubes', 'vials'];
+  {
+    value: 'PACK_WITH_CONTENT',
+    label: category === 'chemical' ? 'Container With Content' : 'Pack With Content',
+  },
+]);
 
 const ROOM_AREA_OPTIONS = ['MBB Lab', 'RT-PCR Room', 'PCR Room', 'Isozyme Ref', 'Other'];
 const STORAGE_TYPE_OPTIONS = ['Shelf', 'Cabinet', 'Bench', 'Table', 'Freezer', 'Fridge', 'Other'];
@@ -145,13 +152,13 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
 const getInitialFormData = (category) => ({
   name: '',
   category,
-  tracking_type: 'SIMPLE_MEASURE',
+  tracking_type: TRACKING_TYPES.PACK_WITH_CONTENT,
   quantity_value: 0,
-  quantity_unit: category === 'chemical' ? 'g' : 'pcs',
-  unit_type: '',
+  quantity_unit: getDefaultContentUnitForCategory(category),
+  unit_type: getDefaultContainerTypeForCategory(category),
   total_units: 0,
   content_per_unit: 0,
-  content_label: 'pcs',
+  content_unit: getDefaultContentUnitForCategory(category),
   total_content: 0,
   already_opened: false,
   opened_pack_remaining_content: '',
@@ -185,6 +192,9 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
   const isUnitOnly = formData.tracking_type === 'UNIT_ONLY';
   const isPackWithContent = formData.tracking_type === 'PACK_WITH_CONTENT';
   const showSimpleUnitOpenedToggle = isSimpleMeasure || isUnitOnly;
+  const containerTypeOptions = CATEGORY_CONTAINER_TYPES[category] || [];
+  const contentUnitOptions = CATEGORY_CONTENT_UNITS[category] || [];
+  const trackingTypeOptions = getTrackingTypeOptions(category);
 
   useEffect(() => {
     if (item) {
@@ -198,7 +208,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         unit_type: item.unit_type || (trackingType !== 'SIMPLE_MEASURE' ? item.unit || '' : ''),
         total_units: item.total_units ?? (trackingType !== 'SIMPLE_MEASURE' ? item.quantity || 0 : 0),
         content_per_unit: item.content_per_unit || 0,
-        content_label: item.content_label || 'pcs',
+        content_unit: item.content_unit || item.total_content_unit || item.content_label || getDefaultContentUnitForCategory(item.category || category),
         total_content: item.total_content || 0,
         already_opened: trackingType !== 'PACK_WITH_CONTENT' ? Boolean(item.opened_date) : false,
         opened_pack_remaining_content: '',
@@ -253,12 +263,16 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
       if (Number(formData.total_units) <= 0) nextErrors.total_units = 'Total units must be greater than 0';
       if (!formData.unit_type?.trim()) nextErrors.unit_type = 'Unit type is required';
       if (Number(formData.content_per_unit) <= 0) nextErrors.content_per_unit = 'Content per unit must be greater than 0';
-      if (!formData.content_label?.trim()) nextErrors.content_label = 'Content label is required';
+      if (!formData.content_unit?.trim()) {
+        nextErrors.content_unit = 'Content unit is required';
+      } else if (!isValidContentUnitForCategory(formData.category, formData.content_unit)) {
+        nextErrors.content_unit = `Invalid unit for ${formData.category}.`;
+      }
 
       if (formData.already_opened) {
         const openedRemaining = Number(formData.opened_pack_remaining_content);
-        if (!Number.isInteger(openedRemaining) || openedRemaining < 0) {
-          nextErrors.opened_pack_remaining_content = 'Opened pack remaining content must be a non-negative integer';
+        if (!Number.isFinite(openedRemaining) || openedRemaining < 0) {
+          nextErrors.opened_pack_remaining_content = 'Opened pack remaining content must be a non-negative number';
         } else if (openedRemaining > Number(formData.content_per_unit || 0)) {
           nextErrors.opened_pack_remaining_content = 'Opened pack remaining content cannot exceed content per unit';
         }
@@ -289,8 +303,11 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
       } else {
         payload.total_content = totalUnits * contentPerUnit;
       }
+      payload.total_content_unit = payload.content_unit;
+      payload.content_label = payload.content_unit; // Legacy compatibility.
     } else {
       payload.total_content = null;
+      payload.total_content_unit = null;
     }
 
     if (category === 'chemical' && !item && msdsFile) {
@@ -320,8 +337,19 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         return {
           ...prev,
           tracking_type: value,
+          unit_type: prev.unit_type || getDefaultContainerTypeForCategory(prev.category),
+          content_unit: prev.content_unit || getDefaultContentUnitForCategory(prev.category),
           already_opened: false,
           opened_pack_remaining_content: '',
+        };
+      }
+      if (field === 'category') {
+        return {
+          ...prev,
+          category: value,
+          quantity_unit: getDefaultContentUnitForCategory(value),
+          unit_type: getDefaultContainerTypeForCategory(value),
+          content_unit: getDefaultContentUnitForCategory(value),
         };
       }
       return { ...prev, [field]: value };
@@ -378,7 +406,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                   <SelectValue placeholder="Select tracking type" />
                 </SelectTrigger>
                 <SelectContent>
-                  {TRACKING_TYPES.map((opt) => (
+                  {trackingTypeOptions.map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>
                   ))}
                 </SelectContent>
@@ -425,7 +453,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                       <SelectValue placeholder="Select unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {MEASURE_UNIT_OPTIONS.map((unit) => (
+                      {contentUnitOptions.map((unit) => (
                         <SelectItem key={unit} value={unit}>{unit}</SelectItem>
                       ))}
                     </SelectContent>
@@ -461,7 +489,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                       <SelectValue placeholder="Select unit type" />
                     </SelectTrigger>
                     <SelectContent>
-                      {UNIT_TYPE_OPTIONS.map((unitType) => (
+                      {containerTypeOptions.map((unitType) => (
                         <SelectItem key={unitType} value={unitType}>{unitType}</SelectItem>
                       ))}
                     </SelectContent>
@@ -478,31 +506,31 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                   <Input
                     id="content_per_unit"
                     type="number"
-                    min="1"
-                    step="1"
+                    min="0"
+                    step="0.01"
                     value={formData.content_per_unit}
-                    onChange={(e) => handleChange('content_per_unit', parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) => handleChange('content_per_unit', parseFloat(e.target.value) || 0)}
                     className={errors.content_per_unit ? 'border-red-500' : ''}
                   />
                   {errors.content_per_unit && <p className="text-red-500 text-sm mt-1">{errors.content_per_unit}</p>}
                 </div>
 
                 <div>
-                  <Label htmlFor="content_label">Content Label *</Label>
+                  <Label htmlFor="content_unit">Content Unit *</Label>
                   <Select
-                    value={formData.content_label}
-                    onValueChange={(value) => handleChange('content_label', value)}
+                    value={formData.content_unit}
+                    onValueChange={(value) => handleChange('content_unit', value)}
                   >
-                    <SelectTrigger className={errors.content_label ? 'border-red-500' : ''}>
-                      <SelectValue placeholder="Select content label" />
+                    <SelectTrigger className={errors.content_unit ? 'border-red-500' : ''}>
+                      <SelectValue placeholder="Select content unit" />
                     </SelectTrigger>
                     <SelectContent>
-                      {CONTENT_LABEL_OPTIONS.map((label) => (
+                      {contentUnitOptions.map((label) => (
                         <SelectItem key={label} value={label}>{label}</SelectItem>
                       ))}
                     </SelectContent>
                   </Select>
-                  {errors.content_label && <p className="text-red-500 text-sm mt-1">{errors.content_label}</p>}
+                  {errors.content_unit && <p className="text-red-500 text-sm mt-1">{errors.content_unit}</p>}
                 </div>
 
                 {!item && (
@@ -528,7 +556,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                           id="opened_pack_remaining_content"
                           type="number"
                           min="0"
-                          step="1"
+                          step="0.01"
                           value={formData.opened_pack_remaining_content}
                           onChange={(e) => handleChange('opened_pack_remaining_content', e.target.value)}
                           className={errors.opened_pack_remaining_content ? 'border-red-500' : ''}
@@ -540,7 +568,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                 )}
 
                 <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                  Total content: <span className="font-semibold">{computedTotalContent ?? 0} {formData.content_label || 'pcs'}</span>
+                  Total content: <span className="font-semibold">{formData.total_units || 0} x {formData.content_per_unit || 0} {formData.content_unit || ''} = {computedTotalContent ?? 0} {formData.content_unit || ''}</span>
                 </div>
               </>
             )}

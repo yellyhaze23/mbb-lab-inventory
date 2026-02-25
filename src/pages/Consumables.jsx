@@ -274,7 +274,7 @@ export default function Consumables() {
       });
       const trackingType = item?.tracking_type || 'SIMPLE_MEASURE';
       const deductLabel = trackingType === 'PACK_WITH_CONTENT' && payload.mode === 'CONTENT'
-        ? item.content_label || 'pcs'
+        ? item.content_unit || item.total_content_unit || item.content_label || 'pcs'
         : getPrimaryUnitLabel(item);
       toast.success(`Recorded usage of ${payload.amount} ${deductLabel} of ${item.name}`);
       loadData();

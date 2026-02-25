@@ -211,9 +211,10 @@ export default function ItemsTableWithSelection({
       unit: item.unit_type || item.unit || 'pack',
       min: item.minimum_stock,
       content: item.total_content ?? 0,
-      contentLabel: item.content_label || 'pcs',
+      contentLabel: item.content_unit || item.total_content_unit || item.content_label || 'pcs',
       sealed: item.sealed_count ?? 0,
       opened: item.opened_count ?? 0,
+      empty: item.empty_count ?? 0,
     };
   };
 
@@ -345,7 +346,7 @@ export default function ItemsTableWithSelection({
                                 {quantity.content} {quantity.contentLabel}
                               </div>
                               <div className="text-xs text-slate-500">
-                                Sealed: {quantity.sealed} / Opened: {quantity.opened}
+                                Sealed: {quantity.sealed} / Opened: {quantity.opened} / Empty: {quantity.empty}
                               </div>
                             </>
                           )}

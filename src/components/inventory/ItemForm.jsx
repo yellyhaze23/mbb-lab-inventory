@@ -51,7 +51,7 @@ const getTrackingTypeOptions = (category) => ([
 const ROOM_AREA_OPTIONS = ['MBB Lab', 'RT-PCR Room', 'PCR Room', 'Isozyme Ref', 'Other'];
 const STORAGE_TYPE_OPTIONS = ['Shelf', 'Cabinet', 'Bench', 'Table', 'Freezer', 'Fridge', 'Other'];
 const POSITION_OPTIONS = ['Top', 'Middle', 'Bottom', 'Other'];
-const STORAGE_NUMBER_OPTIONS = ['A', 'B', 'C', 'D', '1', '2', '3', '4', 'Other'];
+const STORAGE_NUMBER_OPTIONS = ['A', 'B', 'C', 'D', '1', '2', '3', '4', '5', '6', '7', 'Other'];
 
 function EditableCombobox({ id, value, onChange, options, placeholder, hasError = false }) {
   const [open, setOpen] = useState(false);
@@ -126,7 +126,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
               className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100"
               onClick={() => commitValue(trimmedSearch)}
             >
-              Use "{trimmedSearch}"
+              Add "{trimmedSearch}"
             </button>
           )}
           {filteredOptions.map((opt) => (

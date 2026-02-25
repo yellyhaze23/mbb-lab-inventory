@@ -269,14 +269,6 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         nextErrors.content_unit = `Invalid unit for ${formData.category}.`;
       }
 
-      if (formData.already_opened) {
-        const openedRemaining = Number(formData.opened_pack_remaining_content);
-        if (!Number.isFinite(openedRemaining) || openedRemaining < 0) {
-          nextErrors.opened_pack_remaining_content = 'Opened pack remaining content must be a non-negative number';
-        } else if (openedRemaining > Number(formData.content_per_unit || 0)) {
-          nextErrors.opened_pack_remaining_content = 'Opened pack remaining content cannot exceed content per unit';
-        }
-      }
     }
 
     if (category === 'chemical' && !item && msdsFile) {
@@ -297,12 +289,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
     if (isPackWithContent) {
       const totalUnits = Number(payload.total_units) || 0;
       const contentPerUnit = Number(payload.content_per_unit) || 0;
-      if (payload.already_opened) {
-        const openedRemaining = Number(payload.opened_pack_remaining_content) || 0;
-        payload.total_content = Math.max(totalUnits - 1, 0) * contentPerUnit + openedRemaining;
-      } else {
-        payload.total_content = totalUnits * contentPerUnit;
-      }
+      payload.total_content = totalUnits * contentPerUnit;
       payload.total_content_unit = payload.content_unit;
       payload.content_label = payload.content_unit; // Legacy compatibility.
     } else {
@@ -363,12 +350,8 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
     if (!isPackWithContent) return null;
     const totalUnits = Number(formData.total_units) || 0;
     const contentPerUnit = Number(formData.content_per_unit) || 0;
-    if (formData.already_opened) {
-      const openedRemaining = Number(formData.opened_pack_remaining_content) || 0;
-      return Math.max(totalUnits - 1, 0) * contentPerUnit + openedRemaining;
-    }
     return totalUnits * contentPerUnit;
-  }, [formData.total_units, formData.content_per_unit, formData.already_opened, formData.opened_pack_remaining_content, isPackWithContent]);
+  }, [formData.total_units, formData.content_per_unit, isPackWithContent]);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -550,19 +533,9 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                     </div>
 
                     {formData.already_opened && (
-                      <div className="col-span-2">
-                        <Label htmlFor="opened_pack_remaining_content">Opened Pack Remaining Content *</Label>
-                        <Input
-                          id="opened_pack_remaining_content"
-                          type="number"
-                          min="0"
-                          step="0.01"
-                          value={formData.opened_pack_remaining_content}
-                          onChange={(e) => handleChange('opened_pack_remaining_content', e.target.value)}
-                          className={errors.opened_pack_remaining_content ? 'border-red-500' : ''}
-                        />
-                        {errors.opened_pack_remaining_content && <p className="text-red-500 text-sm mt-1">{errors.opened_pack_remaining_content}</p>}
-                      </div>
+                      <p className="col-span-2 text-xs text-slate-500">
+                        First container will be marked as opened. Remaining content will be updated once usage is recorded.
+                      </p>
                     )}
                   </>
                 )}

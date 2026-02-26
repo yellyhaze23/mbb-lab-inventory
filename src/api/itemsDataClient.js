@@ -99,6 +99,11 @@ const normalizeTrackingPayload = (payload = {}) => {
     next.unit = unitType;
     next.quantity_value = null;
     next.quantity_unit = null;
+    if (typeof uiAlreadyOpened === 'boolean') {
+      next.opened_date = uiAlreadyOpened
+        ? (next.opened_date || new Date().toISOString().slice(0, 10))
+        : null;
+    }
   }
 
   if (trackingType === TRACKING_TYPES.PACK_WITH_CONTENT) {

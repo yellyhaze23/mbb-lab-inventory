@@ -322,7 +322,9 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         content_per_unit: item.content_per_unit || 0,
         content_unit: item.content_unit || item.total_content_unit || item.content_label || getDefaultContentUnitForCategory(item.category || category),
         total_content: item.total_content || 0,
-        already_opened: trackingType !== 'PACK_WITH_CONTENT' ? Boolean(item.opened_date) : false,
+        already_opened: trackingType === 'PACK_WITH_CONTENT'
+          ? (Number(item.opened_count || 0) > 0 || Boolean(item.opened_date))
+          : Boolean(item.opened_date),
         opened_pack_remaining_content: '',
         room_area: item.room_area || '',
         storage_type: item.storage_type || '',
@@ -630,34 +632,30 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                   {errors.content_unit && <p className="text-red-500 text-sm mt-1">{errors.content_unit}</p>}
                 </div>
 
-                {!item && (
-                  <>
-                    <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
-                      <label className="flex items-center gap-2 text-sm text-slate-700">
-                        <input
-                          type="checkbox"
-                          checked={formData.already_opened}
-                          onChange={(e) => handleChange('already_opened', e.target.checked)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleChange('already_opened', !formData.already_opened);
-                            }
-                          }}
-                        />
-                        Already opened?
-                      </label>
-                      <p className="mt-1 text-xs text-slate-500">
-                        Default is automatic all-sealed initialization on add.
-                      </p>
-                    </div>
+                <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50/70 px-3 py-3">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={formData.already_opened}
+                      onChange={(e) => handleChange('already_opened', e.target.checked)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleChange('already_opened', !formData.already_opened);
+                        }
+                      }}
+                    />
+                    Already opened?
+                  </label>
+                  <p className="mt-1 text-xs text-slate-500">
+                    {item ? 'Toggle opened/unopened state for this item.' : 'Default is automatic all-sealed initialization on add.'}
+                  </p>
+                </div>
 
-                    {formData.already_opened && (
-                      <p className="col-span-2 text-xs text-slate-500">
-                        First container will be marked as opened. Remaining content will be updated once usage is recorded.
-                      </p>
-                    )}
-                  </>
+                {formData.already_opened && !item && (
+                  <p className="col-span-2 text-xs text-slate-500">
+                    First container will be marked as opened. Remaining content will be updated once usage is recorded.
+                  </p>
                 )}
 
                 <div className="col-span-2 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">

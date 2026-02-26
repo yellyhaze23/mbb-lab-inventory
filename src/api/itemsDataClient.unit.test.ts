@@ -64,6 +64,24 @@ describe('createItemForCategory', () => {
     expect(inserts.some((i) => i.table === 'item_containers')).toBe(false);
   });
 
+  it('maps already_opened for pack-with-content to opened_date on create', async () => {
+    await createItemForCategory('chemical', {
+      name: 'Acetone',
+      tracking_type: 'PACK_WITH_CONTENT',
+      total_units: 2,
+      unit_type: 'bottle',
+      content_per_unit: 50,
+      content_unit: 'mL',
+      room_area: 'MBB Lab',
+      storage_type: 'Shelf',
+      minimum_stock: 1,
+      already_opened: true,
+    });
+
+    const itemInsert = inserts.find((i) => i.table === 'items')?.payload;
+    expect(itemInsert.opened_date).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+
   it('rejects chemical payload with consumable content unit', async () => {
     await expect(createItemForCategory('chemical', {
       name: 'Ethanol',

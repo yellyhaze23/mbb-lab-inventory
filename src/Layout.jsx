@@ -14,7 +14,12 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronDown
+  ChevronDown,
+  CircleHelp,
+  BookOpen,
+  ClipboardList,
+  Keyboard,
+  LifeBuoy
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -25,6 +30,13 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { Toaster } from 'sonner';
 import GlobalSearch from '@/components/layout/GlobalSearch';
 import { AnimatePresence, motion } from 'framer-motion';
@@ -38,6 +50,7 @@ export default function Layout({ children, currentPageName }) {
   const [isLoading, setIsLoading] = useState(true);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
   const navRef = useRef(null);
   const navListRef = useRef(null);
   const [activePillStyle, setActivePillStyle] = useState({ top: 0, left: 0, width: 0, height: 0, opacity: 0 });
@@ -332,38 +345,55 @@ export default function Layout({ children, currentPageName }) {
               <div className="flex-1" />
             )}
 
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="flex items-center gap-2 px-2">
-                  <Avatar className="w-8 h-8">
-                    {userProfile?.avatar_url && (
-                      <AvatarImage src={userProfile.avatar_url} alt="Profile" className="object-cover" />
-                    )}
-                    <AvatarFallback className="bg-blue-600 text-white text-xs">
-                      {getInitials(userProfile?.full_name || user?.user_metadata?.full_name || user?.email)}
-                    </AvatarFallback>
-                  </Avatar>
-                  <span className="hidden md:block text-sm font-medium">
-                    {userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User'}
-                  </span>
-                  <ChevronDown className="w-4 h-4 text-slate-500" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-56">
-                <div className="px-2 py-1.5 text-sm">
-                  <p className="font-medium">{userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User'}</p>
-                  <p className="text-xs text-slate-500 capitalize">{userProfile?.role?.replace('_', ' ') || 'Admin'}</p>
-                </div>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild>
-                  <Link to={createPageUrl('Settings')} className="cursor-pointer">Settings</Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
-                  <LogOut className="w-4 h-4 mr-2" />
-                  Logout
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-slate-600 hover:text-slate-900"
+                aria-label="Open system guide"
+                title="Help & Guide"
+                onClick={() => setHelpOpen(true)}
+              >
+                <CircleHelp className="w-5 h-5" />
+              </Button>
+
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" className="flex items-center gap-2 px-2">
+                    <Avatar className="w-8 h-8">
+                      {userProfile?.avatar_url && (
+                        <AvatarImage src={userProfile.avatar_url} alt="Profile" className="object-cover" />
+                      )}
+                      <AvatarFallback className="bg-blue-600 text-white text-xs">
+                        {getInitials(userProfile?.full_name || user?.user_metadata?.full_name || user?.email)}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="hidden md:block text-sm font-medium">
+                      {userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User'}
+                    </span>
+                    <ChevronDown className="w-4 h-4 text-slate-500" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <div className="px-2 py-1.5 text-sm">
+                    <p className="font-medium">{userProfile?.full_name || user?.user_metadata?.full_name || user?.email || 'User'}</p>
+                    <p className="text-xs text-slate-500 capitalize">{userProfile?.role?.replace('_', ' ') || 'Admin'}</p>
+                  </div>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={() => setHelpOpen(true)} className="cursor-pointer">
+                    <CircleHelp className="w-4 h-4 mr-2" />
+                    Help & Guide
+                  </DropdownMenuItem>
+                  <DropdownMenuItem asChild>
+                    <Link to={createPageUrl('Settings')} className="cursor-pointer">Settings</Link>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600 focus:text-red-600">
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Logout
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
           </div>
         </header>
 
@@ -380,6 +410,61 @@ export default function Layout({ children, currentPageName }) {
             </motion.div>
           </AnimatePresence>
         </main>
+
+        <Dialog open={helpOpen} onOpenChange={setHelpOpen}>
+          <DialogContent className="sm:max-w-[680px] max-h-[85vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>System Help & Guide</DialogTitle>
+              <DialogDescription>
+                Quick reference for daily inventory workflows.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 text-sm text-slate-700">
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="font-semibold flex items-center gap-2">
+                  <BookOpen className="w-4 h-4 text-indigo-600" />
+                  Quick Start
+                </p>
+                <p className="mt-1">1) Open Chemicals or Consumables. 2) Click Add Item. 3) Fill location + stock fields. 4) Save and verify status in table.</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="font-semibold flex items-center gap-2">
+                  <ClipboardList className="w-4 h-4 text-emerald-600" />
+                  Editing and Opened Status
+                </p>
+                <p className="mt-1">For Container With Content items, use Already opened and set opened units count to match actual opened bottles/packs.</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="font-semibold flex items-center gap-2">
+                  <Keyboard className="w-4 h-4 text-amber-600" />
+                  Keyboard Tips
+                </p>
+                <p className="mt-1">Tab moves through fields. Enter toggles checkboxes and confirms highlighted combobox options. Arrow keys navigate combobox choices.</p>
+              </div>
+
+              <div className="rounded-lg border border-slate-200 p-3">
+                <p className="font-semibold flex items-center gap-2">
+                  <LifeBuoy className="w-4 h-4 text-blue-600" />
+                  Need More Help?
+                </p>
+                <p className="mt-1">
+                  Go to{' '}
+                  <Link to={createPageUrl('About')} onClick={() => setHelpOpen(false)} className="text-indigo-600 hover:underline">
+                    About
+                  </Link>{' '}
+                  for project info or{' '}
+                  <Link to={createPageUrl('Settings')} onClick={() => setHelpOpen(false)} className="text-indigo-600 hover:underline">
+                    Settings
+                  </Link>{' '}
+                  for account and configuration updates.
+                </p>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );

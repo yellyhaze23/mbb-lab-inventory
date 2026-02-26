@@ -274,6 +274,7 @@ const getInitialFormData = (category) => ({
   content_unit: getDefaultContentUnitForCategory(category),
   total_content: 0,
   already_opened: false,
+  opened_units_count: 1,
   opened_pack_remaining_content: '',
   room_area: '',
   storage_type: '',
@@ -325,6 +326,9 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         already_opened: trackingType === 'PACK_WITH_CONTENT'
           ? (Number(item.opened_count || 0) > 0 || Boolean(item.opened_date))
           : Boolean(item.opened_date),
+        opened_units_count: trackingType === 'PACK_WITH_CONTENT'
+          ? (Number(item.opened_count || 0) > 0 ? Number(item.opened_count) : 1)
+          : 1,
         opened_pack_remaining_content: '',
         room_area: item.room_area || '',
         storage_type: item.storage_type || '',
@@ -377,6 +381,15 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
         nextErrors.content_unit = 'Content unit is required';
       } else if (!isValidContentUnitForCategory(formData.category, formData.content_unit)) {
         nextErrors.content_unit = `Invalid unit for ${formData.category}.`;
+      }
+      if (formData.already_opened) {
+        const totalUnits = Number(formData.total_units) || 0;
+        const openedUnits = Number(formData.opened_units_count) || 0;
+        if (openedUnits < 1) {
+          nextErrors.opened_units_count = 'Opened units must be at least 1';
+        } else if (openedUnits > totalUnits) {
+          nextErrors.opened_units_count = 'Opened units cannot exceed total units';
+        }
       }
 
     }
@@ -437,6 +450,7 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
           unit_type: prev.unit_type || getDefaultContainerTypeForCategory(prev.category),
           content_unit: prev.content_unit || getDefaultContentUnitForCategory(prev.category),
           already_opened: false,
+          opened_units_count: 1,
           opened_pack_remaining_content: '',
         };
       }
@@ -637,7 +651,13 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                     <input
                       type="checkbox"
                       checked={formData.already_opened}
-                      onChange={(e) => handleChange('already_opened', e.target.checked)}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        handleChange('already_opened', checked);
+                        if (checked && Number(formData.opened_units_count || 0) < 1) {
+                          handleChange('opened_units_count', 1);
+                        }
+                      }}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter') {
                           e.preventDefault();
@@ -651,6 +671,26 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                     {item ? 'Toggle opened/unopened state for this item.' : 'Default is automatic all-sealed initialization on add.'}
                   </p>
                 </div>
+
+                {formData.already_opened && (
+                  <div className="col-span-2">
+                    <Label htmlFor="opened_units_count">How many units are opened? *</Label>
+                    <Input
+                      id="opened_units_count"
+                      type="number"
+                      min="1"
+                      max={Math.max(1, Number(formData.total_units) || 1)}
+                      step="1"
+                      value={formData.opened_units_count}
+                      onChange={(e) => handleChange('opened_units_count', parseInt(e.target.value, 10) || 0)}
+                      className={errors.opened_units_count ? 'border-red-500' : ''}
+                    />
+                    <p className="mt-1 text-xs text-slate-500">
+                      Total units: {formData.total_units || 0}
+                    </p>
+                    {errors.opened_units_count && <p className="text-red-500 text-sm mt-1">{errors.opened_units_count}</p>}
+                  </div>
+                )}
 
                 {formData.already_opened && !item && (
                   <p className="col-span-2 text-xs text-slate-500">

@@ -35,10 +35,14 @@ describe('createItemForCategory', () => {
       }
       if (table === 'item_containers') {
         return {
-          insert: async (payload) => {
-            inserts.push({ table, payload });
-            return { error: null };
-          },
+          select: () => ({
+            eq: () => ({
+              order: async () => ({ data: [], error: null }),
+            }),
+          }),
+          update: () => ({
+            in: async () => ({ error: null }),
+          }),
         };
       }
       throw new Error(`Unexpected table: ${table}`);

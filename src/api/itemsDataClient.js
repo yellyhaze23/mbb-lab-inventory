@@ -6,7 +6,7 @@ import {
 } from '@/constants/measurement';
 
 const DATE_FIELDS = ['expiration_date', 'date_received', 'opened_date'];
-const UI_ONLY_FIELDS = ['already_opened', 'opened_pack_remaining_content'];
+const UI_ONLY_FIELDS = ['already_opened', 'opened_pack_remaining_content', 'opened_units_count'];
 
 const sanitizeItemPayload = (payload = {}) => {
   const next = { ...payload };
@@ -246,6 +246,67 @@ const runItemListQuery = async (buildQuery) => {
   return result;
 };
 
+const toDesiredOpenedCount = (payload = {}, totalUnits = 0) => {
+  if (typeof payload?.already_opened !== 'boolean') return null;
+  if (!payload.already_opened) return 0;
+  const requested = toIntOrNull(payload?.opened_units_count);
+  if (!Number.isFinite(requested) || requested <= 0) return Math.min(1, Math.max(0, totalUnits));
+  return Math.max(0, Math.min(requested, totalUnits));
+};
+
+const syncPackContainerOpenCount = async (itemId, desiredOpenedCount) => {
+  if (!itemId || desiredOpenedCount === null || desiredOpenedCount === undefined) return;
+
+  let { data: containers, error } = await supabase
+    .from('item_containers')
+    .select('id, status, container_index')
+    .eq('item_id', itemId)
+    .order('container_index', { ascending: true });
+
+  if (error && isSchemaMismatchError(error)) {
+    const retry = await supabase
+      .from('item_containers')
+      .select('id, status')
+      .eq('item_id', itemId);
+    containers = retry.data;
+    error = retry.error;
+  }
+
+  if (error) throw error;
+  if (!containers || containers.length === 0) return;
+
+  const editable = containers.filter((c) => {
+    const status = String(c.status || '').toLowerCase();
+    return status === 'opened' || status === 'sealed';
+  });
+
+  if (editable.length === 0) return;
+
+  const targetOpened = Math.max(0, Math.min(desiredOpenedCount, editable.length));
+  const opened = editable.filter((c) => String(c.status || '').toLowerCase() === 'opened');
+  const sealed = editable.filter((c) => String(c.status || '').toLowerCase() === 'sealed');
+
+  if (opened.length < targetOpened) {
+    const toOpen = sealed.slice(0, targetOpened - opened.length).map((c) => c.id);
+    if (toOpen.length > 0) {
+      const { error: openError } = await supabase
+        .from('item_containers')
+        .update({ status: 'opened' })
+        .in('id', toOpen);
+      if (openError) throw openError;
+    }
+  } else if (opened.length > targetOpened) {
+    const toSeal = opened.slice(targetOpened).map((c) => c.id);
+    if (toSeal.length > 0) {
+      const { error: sealError } = await supabase
+        .from('item_containers')
+        .update({ status: 'sealed' })
+        .in('id', toSeal);
+      if (sealError) throw sealError;
+    }
+  }
+};
+
 const withContainerStats = async (items = []) => {
   const packItems = items.filter((item) => item.tracking_type === TRACKING_TYPES.PACK_WITH_CONTENT);
   if (packItems.length === 0) return items;
@@ -368,16 +429,27 @@ export const createItemForCategory = async (category, payload) => {
 
   if (error) throw error;
 
+  const desiredOpened = toDesiredOpenedCount(payload, Number(prepared.total_units) || 0);
+  if (prepared.tracking_type === TRACKING_TYPES.PACK_WITH_CONTENT && desiredOpened !== null) {
+    await syncPackContainerOpenCount(data?.id, desiredOpened);
+  }
+
   return data;
 };
 
 export const updateItemById = async (itemId, payload) => {
+  const prepared = normalizeTrackingPayload(payload);
   const { error } = await supabase
     .from('items')
-    .update(normalizeTrackingPayload(payload))
+    .update(prepared)
     .eq('id', itemId);
 
   if (error) throw error;
+
+  const desiredOpened = toDesiredOpenedCount(payload, Number(prepared.total_units) || 0);
+  if (prepared.tracking_type === TRACKING_TYPES.PACK_WITH_CONTENT && desiredOpened !== null) {
+    await syncPackContainerOpenCount(itemId, desiredOpened);
+  }
 };
 
 export const deleteItemById = async (itemId) => {

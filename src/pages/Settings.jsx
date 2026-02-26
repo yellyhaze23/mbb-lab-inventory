@@ -26,7 +26,6 @@ import { invokeEdgeFunction } from '@/lib/edgeClient';
 import ProfileAvatarUpload from '../components/settings/ProfileAvatarUpload';
 
 const PIN_CACHE_KEY = 'lab_settings_pin_cache';
-
 function readCachedPin() {
   try {
     return localStorage.getItem(PIN_CACHE_KEY) || '';
@@ -73,6 +72,7 @@ export default function Settings() {
   useEffect(() => {
     loadData();
   }, []);
+
 
   const loadData = async () => {
     try {
@@ -561,9 +561,5 @@ export default function Settings() {
     </div>
   );
 }
-
-
-
-
 
 

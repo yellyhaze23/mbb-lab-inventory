@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -52,23 +52,59 @@ const STORAGE_NUMBER_OPTIONS = ['A', 'B', 'C', 'D', '1', '2', '3', '4', '5', '6'
 function EditableCombobox({ id, value, onChange, options, placeholder, hasError = false }) {
   const [open, setOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const skipCloseAutoFocusRef = useRef(false);
+  const skipNextFocusOpenRef = useRef(false);
+  const optionRefs = useRef([]);
   const trimmedSearch = searchQuery.trim();
   const normalizedSearch = trimmedSearch.toLowerCase();
   const filteredOptions = normalizedSearch
     ? options.filter((opt) => opt.toLowerCase().includes(normalizedSearch))
     : options;
   const showCreateOption = Boolean(trimmedSearch) && !options.some((opt) => opt.toLowerCase() === normalizedSearch);
+  const selectableOptions = useMemo(() => {
+    const base = filteredOptions.map((opt) => ({ kind: 'option', value: opt }));
+    if (showCreateOption) return [{ kind: 'create', value: trimmedSearch }, ...base];
+    return base;
+  }, [filteredOptions, showCreateOption, trimmedSearch]);
 
   const handleOpenChange = (nextOpen) => {
     setOpen(nextOpen);
-    if (nextOpen) setSearchQuery('');
+    if (nextOpen) {
+      setSearchQuery('');
+      setHighlightedIndex(-1);
+    }
   };
 
   const commitValue = (nextValue) => {
     onChange(nextValue);
     setSearchQuery('');
     setOpen(false);
+    setHighlightedIndex(-1);
   };
+
+  useEffect(() => {
+    if (!open) return;
+    if (selectableOptions.length === 0) {
+      setHighlightedIndex(-1);
+      return;
+    }
+
+    if (highlightedIndex < 0 || highlightedIndex >= selectableOptions.length) {
+      const selectedIdx = selectableOptions.findIndex(
+        (entry) => entry.kind === 'option' && entry.value === value
+      );
+      setHighlightedIndex(selectedIdx >= 0 ? selectedIdx : 0);
+    }
+  }, [open, selectableOptions, highlightedIndex, value]);
+
+  useEffect(() => {
+    if (!open || highlightedIndex < 0) return;
+    const el = optionRefs.current[highlightedIndex];
+    if (el && typeof el.scrollIntoView === 'function') {
+      el.scrollIntoView({ block: 'nearest' });
+    }
+  }, [open, highlightedIndex]);
 
   return (
     <Popover open={open} onOpenChange={handleOpenChange}>
@@ -84,15 +120,69 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
               }
               setSearchQuery(e.target.value);
             }}
-            onFocus={() => handleOpenChange(true)}
+            onFocus={(e) => {
+              if (skipNextFocusOpenRef.current) {
+                skipNextFocusOpenRef.current = false;
+                return;
+              }
+              requestAnimationFrame(() => {
+                if (document.activeElement === e.currentTarget) {
+                  handleOpenChange(true);
+                }
+              });
+            }}
+            onClick={() => {
+              if (!open) handleOpenChange(true);
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Escape') {
                 setOpen(false);
                 setSearchQuery('');
+                setHighlightedIndex(-1);
+              }
+              if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                if (!open) {
+                  handleOpenChange(true);
+                  return;
+                }
+                if (selectableOptions.length > 0) {
+                  setHighlightedIndex((prev) => (prev + 1) % selectableOptions.length);
+                }
+                return;
+              }
+              if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!open) {
+                  handleOpenChange(true);
+                  return;
+                }
+                if (selectableOptions.length > 0) {
+                  setHighlightedIndex((prev) =>
+                    prev <= 0 ? selectableOptions.length - 1 : prev - 1
+                  );
+                }
+                return;
+              }
+              if (e.key === 'Enter' && !open) {
+                e.preventDefault();
+                handleOpenChange(true);
+                return;
+              }
+              if (e.key === 'Enter' && open) {
+                const highlighted = selectableOptions[highlightedIndex];
+                if (highlighted) {
+                  e.preventDefault();
+                  commitValue(highlighted.value);
+                  return;
+                }
               }
               if (e.key === 'Tab') {
+                skipCloseAutoFocusRef.current = true;
+                skipNextFocusOpenRef.current = true;
                 setOpen(false);
                 setSearchQuery('');
+                setHighlightedIndex(-1);
                 return;
               }
               if (e.key === 'Enter' && showCreateOption) {
@@ -120,7 +210,12 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
         className="w-[var(--radix-popover-anchor-width)] p-1"
         align="start"
         onOpenAutoFocus={(e) => e.preventDefault()}
-        onCloseAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => {
+          if (skipCloseAutoFocusRef.current) {
+            e.preventDefault();
+            skipCloseAutoFocusRef.current = false;
+          }
+        }}
       >
         <div
           className="max-h-40 overflow-y-auto overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
@@ -129,24 +224,35 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
         >
           {showCreateOption && (
             <button
+              ref={(el) => {
+                optionRefs.current[0] = el;
+              }}
               type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100"
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100 ${highlightedIndex === 0 ? 'bg-slate-100' : ''}`}
+              onMouseEnter={() => setHighlightedIndex(0)}
               onClick={() => commitValue(trimmedSearch)}
             >
               Add "{trimmedSearch}"
             </button>
           )}
-          {filteredOptions.map((opt) => (
+          {filteredOptions.map((opt, index) => {
+            const optionIndex = showCreateOption ? index + 1 : index;
+            return (
             <button
+              ref={(el) => {
+                optionRefs.current[optionIndex] = el;
+              }}
               key={opt}
               type="button"
-              className="flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100"
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100 ${highlightedIndex === optionIndex ? 'bg-slate-100' : ''}`}
+              onMouseEnter={() => setHighlightedIndex(optionIndex)}
               onClick={() => commitValue(opt)}
             >
               <Check className={`h-4 w-4 ${value === opt ? 'opacity-100' : 'opacity-0'}`} />
               <span>{opt}</span>
             </button>
-          ))}
+            );
+          })}
           {filteredOptions.length === 0 && !showCreateOption && (
             <p className="px-3 py-2 text-sm text-slate-500">No options found</p>
           )}

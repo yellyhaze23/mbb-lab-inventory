@@ -43,7 +43,7 @@ export default function DataQualityWarnings({ items }) {
       label: 'Missing project/fund source',
       count: missingProject.length,
       color: 'blue',
-      link: null
+      link: createPageUrl('Chemicals') + '?filter=no_project'
     });
   }
 

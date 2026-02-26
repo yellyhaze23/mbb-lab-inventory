@@ -45,6 +45,7 @@ export default function Chemicals() {
   const [expirationFilter, setExpirationFilter] = useState('all');
   const [stockFilter, setStockFilter] = useState('all');
   const [quickFilter, setQuickFilter] = useState('all');
+  const [urlFilter, setUrlFilter] = useState('all');
   const [sortConfig, setSortConfig] = useState({ key: 'name', direction: 'asc' });
   const [selectedItem, setSelectedItem] = useState(null);
   const [selectedIds, setSelectedIds] = useState([]);
@@ -70,9 +71,24 @@ export default function Chemicals() {
     const urlParams = new URLSearchParams(window.location.search);
     const highlight = urlParams.get('highlight');
     const search = urlParams.get('search');
+    const filter = urlParams.get('filter');
     
     if (search) {
       setSearchQuery(search);
+    }
+    if (filter === 'no_expiration') {
+      setUrlFilter('no_expiration');
+      setStatusFilter('active');
+      setExpirationFilter('none');
+      setStockFilter('all');
+      setQuickFilter('all');
+    }
+    if (filter === 'no_project') {
+      setUrlFilter('no_project');
+      setStatusFilter('active');
+      setExpirationFilter('all');
+      setStockFilter('all');
+      setQuickFilter('all');
     }
     if (highlight) {
       setHighlightedId(highlight);
@@ -213,8 +229,12 @@ export default function Chemicals() {
       } else if (stockFilter === 'zero') {
         matchesStock = item.quantity === 0;
       }
+
+      const matchesProject = urlFilter === 'no_project'
+        ? !item.project_fund_source?.trim()
+        : true;
       
-      return matchesSearch && matchesStatus && matchesRoom && matchesStorage && matchesExpiration && matchesStock;
+      return matchesSearch && matchesStatus && matchesRoom && matchesStorage && matchesExpiration && matchesStock && matchesProject;
     });
 
     result.sort((a, b) => {
@@ -252,7 +272,7 @@ export default function Chemicals() {
     });
 
     return result;
-  }, [items, debouncedSearch, statusFilter, roomFilter, storageFilter, expirationFilter, stockFilter, sortConfig]);
+  }, [items, debouncedSearch, statusFilter, roomFilter, storageFilter, expirationFilter, stockFilter, sortConfig, urlFilter]);
 
   const paginatedItems = useMemo(() => {
     const start = (currentPage - 1) * pageSize;
@@ -285,8 +305,12 @@ export default function Chemicals() {
     setExpirationFilter('all');
     setStockFilter('all');
     setQuickFilter('all');
+    setUrlFilter('all');
     setSortConfig({ key: 'name', direction: 'asc' });
     setCurrentPage(1);
+    if (window.location.search) {
+      window.history.replaceState({}, '', window.location.pathname);
+    }
   };
 
   // CRUD Handlers

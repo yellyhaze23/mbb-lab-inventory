@@ -90,6 +90,11 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
                 setOpen(false);
                 setSearchQuery('');
               }
+              if (e.key === 'Tab') {
+                setOpen(false);
+                setSearchQuery('');
+                return;
+              }
               if (e.key === 'Enter' && showCreateOption) {
                 e.preventDefault();
                 commitValue(trimmedSearch);
@@ -102,6 +107,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
           <button
             type="button"
             aria-label={`Toggle ${id} options`}
+            tabIndex={-1}
             className="absolute right-2 top-1/2 -translate-y-1/2 rounded-sm p-1 text-slate-500 hover:bg-slate-100"
             onMouseDown={(e) => e.preventDefault()}
             onClick={() => handleOpenChange(!open)}
@@ -110,7 +116,12 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
           </button>
         </div>
       </PopoverAnchor>
-      <PopoverContent className="w-[var(--radix-popover-anchor-width)] p-1" align="start">
+      <PopoverContent
+        className="w-[var(--radix-popover-anchor-width)] p-1"
+        align="start"
+        onOpenAutoFocus={(e) => e.preventDefault()}
+        onCloseAutoFocus={(e) => e.preventDefault()}
+      >
         <div
           className="max-h-40 overflow-y-auto overscroll-contain [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
           onWheelCapture={(e) => e.stopPropagation()}

@@ -405,6 +405,12 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                     type="checkbox"
                     checked={formData.already_opened}
                     onChange={(e) => handleChange('already_opened', e.target.checked)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleChange('already_opened', !formData.already_opened);
+                      }
+                    }}
                   />
                   Already opened?
                 </label>
@@ -526,6 +532,12 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
                           type="checkbox"
                           checked={formData.already_opened}
                           onChange={(e) => handleChange('already_opened', e.target.checked)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleChange('already_opened', !formData.already_opened);
+                            }
+                          }}
                         />
                         Already opened?
                       </label>

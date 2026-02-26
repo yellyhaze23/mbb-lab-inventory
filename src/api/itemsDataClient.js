@@ -286,11 +286,26 @@ const withContainerStats = async (items = []) => {
   return items.map((item) => {
     if (item.tracking_type !== TRACKING_TYPES.PACK_WITH_CONTENT) return item;
     const current = stats.get(item.id) || { sealed_count: 0, opened_count: 0, empty_count: 0 };
+    let sealedCount = current.sealed_count;
+    let openedCount = current.opened_count;
+    const emptyCount = current.empty_count;
+
+    // Fallback: if item is marked opened but container stats still show all sealed,
+    // reflect at least one opened container in UI counts.
+    if (item.opened_date && openedCount === 0) {
+      if (sealedCount > 0) {
+        sealedCount -= 1;
+        openedCount = 1;
+      } else if ((Number(item.total_units) || 0) > emptyCount) {
+        openedCount = 1;
+      }
+    }
+
     return {
       ...item,
-      sealed_count: current.sealed_count,
-      opened_count: current.opened_count,
-      empty_count: current.empty_count,
+      sealed_count: sealedCount,
+      opened_count: openedCount,
+      empty_count: emptyCount,
     };
   });
 };

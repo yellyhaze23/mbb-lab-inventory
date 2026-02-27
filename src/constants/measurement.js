@@ -25,9 +25,10 @@ export const CATEGORY_CONTAINER_TYPES = {
   [ITEM_CATEGORIES.CONSUMABLE]: CONSUMABLE_CONTAINER_TYPES,
 };
 
-export const getDefaultContentUnitForCategory = (category) => (
-  CATEGORY_CONTENT_UNITS[category]?.[0] || 'pcs'
-);
+export const getDefaultContentUnitForCategory = (category) => {
+  if (category === ITEM_CATEGORIES.CHEMICAL) return 'g';
+  return CATEGORY_CONTENT_UNITS[category]?.[0] || 'pcs';
+};
 
 export const getDefaultContainerTypeForCategory = (category) => (
   CATEGORY_CONTAINER_TYPES[category]?.[0] || 'pack'
@@ -38,4 +39,3 @@ export const isValidContentUnitForCategory = (category, unit) => {
   if (!normalized) return false;
   return (CATEGORY_CONTENT_UNITS[category] || []).includes(normalized);
 };
-

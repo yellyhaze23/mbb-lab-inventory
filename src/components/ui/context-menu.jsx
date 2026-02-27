@@ -20,7 +20,7 @@ const ContextMenuSubTrigger = React.forwardRef(({ className, inset, children, ..
   <ContextMenuPrimitive.SubTrigger
     ref={ref}
     className={cn(
-      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-slate-600 focus:text-white data-[state=open]:bg-slate-600 data-[state=open]:text-white",
+      "flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-[#7b1c2e] focus:text-[#f4efe7] data-[state=open]:bg-[#7b1c2e] data-[state=open]:text-[#f4efe7]",
       inset && "pl-8",
       className
     )}
@@ -59,7 +59,7 @@ const ContextMenuItem = React.forwardRef(({ className, inset, ...props }, ref) =
   <ContextMenuPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-slate-600 focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm px-2 py-1.5 text-sm outline-none focus:bg-[#7b1c2e] focus:text-[#f4efe7] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       inset && "pl-8",
       className
     )}
@@ -71,7 +71,7 @@ const ContextMenuCheckboxItem = React.forwardRef(({ className, children, checked
   <ContextMenuPrimitive.CheckboxItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-slate-600 focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-[#7b1c2e] focus:text-[#f4efe7] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     checked={checked}
@@ -91,7 +91,7 @@ const ContextMenuRadioItem = React.forwardRef(({ className, children, ...props }
   <ContextMenuPrimitive.RadioItem
     ref={ref}
     className={cn(
-      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-slate-600 focus:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-[#7b1c2e] focus:text-[#f4efe7] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}>
@@ -154,3 +154,4 @@ export {
   ContextMenuSubTrigger,
   ContextMenuRadioGroup,
 }
+

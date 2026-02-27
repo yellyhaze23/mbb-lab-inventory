@@ -85,7 +85,7 @@ const SelectItem = React.forwardRef(({ className, children, ...props }, ref) => 
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-slate-600 focus:text-white data-[highlighted]:bg-slate-600 data-[highlighted]:text-white data-[state=checked]:bg-slate-700 data-[state=checked]:text-white data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-2 pr-8 text-sm outline-none focus:bg-[#7b1c2e] focus:text-[#f4efe7] data-[highlighted]:bg-[#7b1c2e] data-[highlighted]:text-[#f4efe7] data-[state=checked]:bg-[#8f2437] data-[state=checked]:text-[#f4efe7] data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}>
@@ -119,4 +119,5 @@ export {
   SelectScrollUpButton,
   SelectScrollDownButton,
 }
+
 

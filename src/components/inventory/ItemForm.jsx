@@ -228,7 +228,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
                 optionRefs.current[0] = el;
               }}
               type="button"
-              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-600 hover:text-white ${highlightedIndex === 0 ? 'bg-slate-600 text-white' : ''}`}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-[#7b1c2e] hover:text-[#f4efe7] ${highlightedIndex === 0 ? 'bg-[#7b1c2e] text-[#f4efe7]' : ''}`}
               onMouseEnter={() => setHighlightedIndex(0)}
               onClick={() => commitValue(trimmedSearch)}
             >
@@ -244,7 +244,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
               }}
               key={opt}
               type="button"
-              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-600 hover:text-white ${highlightedIndex === optionIndex ? 'bg-slate-600 text-white' : ''}`}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-[#7b1c2e] hover:text-[#f4efe7] ${highlightedIndex === optionIndex ? 'bg-[#7b1c2e] text-[#f4efe7]' : ''}`}
               onMouseEnter={() => setHighlightedIndex(optionIndex)}
               onClick={() => commitValue(opt)}
             >
@@ -941,3 +941,4 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
     </Dialog>
   );
 }
+

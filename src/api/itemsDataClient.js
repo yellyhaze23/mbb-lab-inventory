@@ -238,6 +238,37 @@ const isSchemaMismatchError = (error) => {
   );
 };
 
+const isSearchFilterParseError = (error) => {
+  const message = String(error?.message || '');
+  const details = String(error?.details || '');
+  return (
+    error?.status === 400 ||
+    error?.code === 'PGRST100' ||
+    message.toLowerCase().includes('failed to parse') ||
+    details.toLowerCase().includes('failed to parse')
+  );
+};
+
+const SEARCHABLE_FIELDS = [
+  'name',
+  'room_area',
+  'storage_type',
+  'storage_number',
+  'position',
+  'lot_number',
+  'project_fund_source',
+  'supplier',
+];
+
+const filterItemsBySearchTerm = (items = [], term = '') => {
+  const normalized = String(term || '').trim().toLowerCase();
+  if (!normalized) return items;
+
+  return items.filter((item) => (
+    SEARCHABLE_FIELDS.some((field) => String(item?.[field] || '').toLowerCase().includes(normalized))
+  ));
+};
+
 const runItemListQuery = async (buildQuery) => {
   let result = await buildQuery(ITEM_LIST_COLUMNS);
   if (!result.error) return result;
@@ -388,13 +419,17 @@ export const listAllItems = async (limit = 1000) => {
 export const listItemsByCategory = async (category, options = {}) => {
   const { limit = 1000, search = '' } = options;
   const trimmedSearch = search.trim();
-  const { data, error } = await runItemListQuery((columns) => {
-    let query = supabase
+  const buildBaseQuery = (columns) => (
+    supabase
       .from('items')
       .select(columns)
       .eq('category', category)
       .order('created_at', { ascending: false })
-      .limit(limit);
+      .limit(limit)
+  );
+
+  const { data, error } = await runItemListQuery((columns) => {
+    let query = buildBaseQuery(columns);
 
     if (trimmedSearch) {
       query = query.or(
@@ -414,9 +449,21 @@ export const listItemsByCategory = async (category, options = {}) => {
     return query;
   });
 
-  if (error) throw error;
-  const normalized = (data || []).map(normalizeItem);
-  return withContainerStats(normalized);
+  if (!error) {
+    const normalized = (data || []).map(normalizeItem);
+    return withContainerStats(normalized);
+  }
+
+  if (!trimmedSearch || !isSearchFilterParseError(error)) {
+    throw error;
+  }
+
+  const fallback = await runItemListQuery((columns) => buildBaseQuery(columns));
+  if (fallback.error) throw fallback.error;
+
+  const normalized = (fallback.data || []).map(normalizeItem);
+  const locallyFiltered = filterItemsBySearchTerm(normalized, trimmedSearch);
+  return withContainerStats(locallyFiltered);
 };
 
 export const createItemForCategory = async (category, payload) => {

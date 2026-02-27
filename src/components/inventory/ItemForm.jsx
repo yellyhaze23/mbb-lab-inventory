@@ -925,7 +925,11 @@ export default function ItemForm({ open, onOpenChange, item, category, onSave })
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit" disabled={isLoading} className="bg-slate-900 text-white hover:bg-slate-800">
+            <Button
+              type="submit"
+              disabled={isLoading}
+              className="rounded-xl bg-gradient-to-r from-[#7b1c2e] to-[#8f2437] border border-[#c9a84c40] text-[#f4efe7] shadow-[0_6px_20px_rgba(123,28,46,0.28)] hover:brightness-110"
+            >
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />

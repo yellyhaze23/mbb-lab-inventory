@@ -10,7 +10,7 @@ export const TRACKING_TYPES = {
 };
 
 export const CHEMICAL_UNITS = ['mg', 'g', 'kg', 'uL', 'µL', 'mL', 'L'];
-export const CONSUMABLE_UNITS = ['pcs', 'pieces', 'tubes', 'vials', 'strips', 'sachets', 'preps', 'plates'];
+export const CONSUMABLE_UNITS = ['pcs', 'pieces', 'tubes', 'tips', 'strips', 'sachets', 'preps', 'plates'];
 
 export const CHEMICAL_CONTAINER_TYPES = ['bottle', 'jar', 'vial', 'tube', 'bag', 'can', 'box', 'drum', 'gallon'];
 export const CONSUMABLE_CONTAINER_TYPES = ['pack', 'box', 'pcs', 'set', 'bundle', 'carton', 'kit', 'racks'];

@@ -228,7 +228,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
                 optionRefs.current[0] = el;
               }}
               type="button"
-              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100 ${highlightedIndex === 0 ? 'bg-slate-100' : ''}`}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-600 hover:text-white ${highlightedIndex === 0 ? 'bg-slate-600 text-white' : ''}`}
               onMouseEnter={() => setHighlightedIndex(0)}
               onClick={() => commitValue(trimmedSearch)}
             >
@@ -244,7 +244,7 @@ function EditableCombobox({ id, value, onChange, options, placeholder, hasError 
               }}
               key={opt}
               type="button"
-              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-100 ${highlightedIndex === optionIndex ? 'bg-slate-100' : ''}`}
+              className={`flex w-full items-center gap-2 rounded-sm px-3 py-2 text-left text-sm hover:bg-slate-600 hover:text-white ${highlightedIndex === optionIndex ? 'bg-slate-600 text-white' : ''}`}
               onMouseEnter={() => setHighlightedIndex(optionIndex)}
               onClick={() => commitValue(opt)}
             >

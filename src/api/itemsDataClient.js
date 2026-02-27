@@ -269,6 +269,8 @@ const filterItemsBySearchTerm = (items = [], term = '') => {
   ));
 };
 
+const hasSearchSymbolsThatBreakOrFilter = (term = '') => /[(),]/.test(String(term));
+
 const runItemListQuery = async (buildQuery) => {
   let result = await buildQuery(ITEM_LIST_COLUMNS);
   if (!result.error) return result;
@@ -419,6 +421,7 @@ export const listAllItems = async (limit = 1000) => {
 export const listItemsByCategory = async (category, options = {}) => {
   const { limit = 1000, search = '' } = options;
   const trimmedSearch = search.trim();
+  const shouldForceLocalSearch = trimmedSearch && hasSearchSymbolsThatBreakOrFilter(trimmedSearch);
   const buildBaseQuery = (columns) => (
     supabase
       .from('items')
@@ -427,6 +430,14 @@ export const listItemsByCategory = async (category, options = {}) => {
       .order('created_at', { ascending: false })
       .limit(limit)
   );
+
+  if (shouldForceLocalSearch) {
+    const fallback = await runItemListQuery((columns) => buildBaseQuery(columns));
+    if (fallback.error) throw fallback.error;
+    const normalized = (fallback.data || []).map(normalizeItem);
+    const locallyFiltered = filterItemsBySearchTerm(normalized, trimmedSearch);
+    return withContainerStats(locallyFiltered);
+  }
 
   const { data, error } = await runItemListQuery((columns) => {
     let query = buildBaseQuery(columns);

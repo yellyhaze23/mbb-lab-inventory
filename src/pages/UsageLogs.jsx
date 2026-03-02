@@ -39,6 +39,7 @@ import { format } from 'date-fns';
 import { listUsageLogs } from '@/api/usageLogsDataClient';
 import useDebounce from '@/hooks/useDebounce';
 import TablePagination from '@/components/ui/table-pagination';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 export default function UsageLogs() {
   const [logs, setLogs] = useState([]);
@@ -70,7 +71,10 @@ export default function UsageLogs() {
       const logsData = await listUsageLogs({ limit: 1000, search: debouncedSearch });
       setLogs(logsData);
     } catch (error) {
-      console.error('Error loading logs:', error);
+      handleAsyncError(error, {
+        context: 'Usage logs load error',
+        fallback: 'Failed to load usage logs',
+      });
     } finally {
       if (showInitialLoading) {
         setIsLoading(false);

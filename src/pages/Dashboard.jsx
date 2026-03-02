@@ -21,6 +21,7 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { format, isAfter, addDays, isBefore } from 'date-fns';
 import DataQualityWarnings from '../components/dashboard/DataQualityWarnings';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 function ClickableStatCard({ title, value, icon: Icon, color, isLoading, href }) {
   const colorConfig = {
@@ -115,7 +116,10 @@ export default function Dashboard() {
         setUserProfile(null);
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      handleAsyncError(error, {
+        context: 'Dashboard load error',
+        fallback: 'Failed to load dashboard data',
+      });
     } finally {
       setIsLoading(false);
     }

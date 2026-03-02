@@ -24,6 +24,7 @@ import { getProfileByUserId, updateProfileById } from '@/api/profilesDataClient'
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { invokeEdgeFunction } from '@/lib/edgeClient';
 import ProfileAvatarUpload from '../components/settings/ProfileAvatarUpload';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 const PIN_CACHE_KEY = 'lab_settings_pin_cache';
 function readCachedPin() {
@@ -153,10 +154,17 @@ export default function Settings() {
     toast.success('New PIN generated');
   };
 
-  const handleCopyPin = () => {
+  const handleCopyPin = async () => {
     if (pinForm.lab_pin) {
-      navigator.clipboard.writeText(pinForm.lab_pin);
-      toast.success('PIN copied to clipboard');
+      try {
+        await navigator.clipboard.writeText(pinForm.lab_pin);
+        toast.success('PIN copied to clipboard');
+      } catch (error) {
+        handleAsyncError(error, {
+          context: 'Copy PIN error',
+          fallback: 'Failed to copy PIN',
+        });
+      }
     }
   };
 
@@ -561,5 +569,3 @@ export default function Settings() {
     </div>
   );
 }
-
-

@@ -21,6 +21,7 @@ import { Download, Eye, History, Loader2, Star, Archive } from 'lucide-react';
 import { format } from 'date-fns';
 import TablePagination from '@/components/ui/table-pagination';
 import type { MsdsDocument } from '@/types/msds';
+import { getErrorMessage, handleAsyncError } from '@/lib/errorHandling';
 
 type MsdsHistoryModalProps = {
   open: boolean;
@@ -50,6 +51,7 @@ export default function MsdsHistoryModal({
   const [docs, setDocs] = useState<MsdsDocument[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -57,9 +59,15 @@ export default function MsdsHistoryModal({
     if (!open) return;
     let isActive = true;
     setIsLoading(true);
+    setLoadError(null);
     loadHistory()
       .then((rows) => {
         if (isActive) setDocs(rows || []);
+      })
+      .catch((error: any) => {
+        if (!isActive) return;
+        setDocs([]);
+        setLoadError(getErrorMessage(error, 'Failed to load MSDS history'));
       })
       .finally(() => {
         if (isActive) setIsLoading(false);
@@ -84,8 +92,25 @@ export default function MsdsHistoryModal({
       await action();
       const refreshed = await loadHistory();
       setDocs(refreshed || []);
+      setLoadError(null);
+    } catch (error: any) {
+      handleAsyncError(error, {
+        context: 'MSDS history action error',
+        fallback: 'Failed to update MSDS record',
+      });
     } finally {
       setBusyId(null);
+    }
+  };
+
+  const runDocAction = async (action: () => Promise<void> | void, fallbackMessage: string) => {
+    try {
+      await action();
+    } catch (error: any) {
+      handleAsyncError(error, {
+        context: 'MSDS document action error',
+        fallback: fallbackMessage,
+      });
     }
   };
 
@@ -101,6 +126,9 @@ export default function MsdsHistoryModal({
             {chemicalName ? `${chemicalName}` : 'Chemical'} - version history and actions.
           </DialogDescription>
         </DialogHeader>
+        {loadError && (
+          <p className="text-sm text-red-600">{loadError}</p>
+        )}
 
         <div className="rounded-lg border border-slate-200 overflow-hidden">
           <Table>
@@ -155,11 +183,19 @@ export default function MsdsHistoryModal({
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
-                        <Button size="sm" variant="outline" onClick={() => onView(doc)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => runDocAction(() => onView(doc), 'Failed to open MSDS')}
+                        >
                           <Eye className="w-3 h-3 mr-1" />
                           View
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => onDownload(doc)}>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => runDocAction(() => onDownload(doc), 'Failed to download MSDS')}
+                        >
                           <Download className="w-3 h-3 mr-1" />
                           Download
                         </Button>
@@ -215,4 +251,3 @@ export default function MsdsHistoryModal({
     </Dialog>
   );
 }
-

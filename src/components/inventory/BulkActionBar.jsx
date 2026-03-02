@@ -16,6 +16,7 @@ import {
   PopoverContent,
 } from '@/components/ui/popover';
 import { Archive, Check, ChevronDown, Download, Trash2, X } from 'lucide-react';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 const ROOM_AREA_OPTIONS = ['MBB Lab', 'RT-PCR Room', 'PCR Room', 'Isozyme Ref', 'Other'];
 const STORAGE_TYPE_OPTIONS = ['Shelf', 'Cabinet', 'Bench', 'Table', 'Freezer', 'Fridge', 'Other'];
@@ -283,8 +284,15 @@ export default function BulkActionBar({
 
   const handleArchive = async () => {
     if (!count || !onBulkArchive) return;
-    await onBulkArchive(selectedItems);
-    onClearSelection?.();
+    try {
+      await onBulkArchive(selectedItems);
+      onClearSelection?.();
+    } catch (error) {
+      handleAsyncError(error, {
+        context: 'Bulk archive error',
+        fallback: 'Failed to archive selected items',
+      });
+    }
   };
 
   const handleDispose = async () => {
@@ -295,11 +303,18 @@ export default function BulkActionBar({
       return;
     }
 
-    await onBulkDispose(selectedItems, reason, disposeForm.notes.trim());
-    setShowDisposeDialog(false);
-    setDisposeError('');
-    setDisposeForm({ reason: 'Expired', notes: '' });
-    onClearSelection?.();
+    try {
+      await onBulkDispose(selectedItems, reason, disposeForm.notes.trim());
+      setShowDisposeDialog(false);
+      setDisposeError('');
+      setDisposeForm({ reason: 'Expired', notes: '' });
+      onClearSelection?.();
+    } catch (error) {
+      handleAsyncError(error, {
+        context: 'Bulk dispose error',
+        fallback: 'Failed to dispose selected items',
+      });
+    }
   };
 
   const handleMove = async () => {
@@ -311,15 +326,22 @@ export default function BulkActionBar({
 
     if (!room && !storageType && !storageNumber && !position) return;
 
-    await onBulkMoveLocation(selectedItems, {
-      room_area: room || undefined,
-      storage_type: storageType || undefined,
-      storage_number: storageNumber || undefined,
-      position: position || undefined,
-    });
-    setShowMoveDialog(false);
-    setMoveForm({ room_area: '', storage_type: '', storage_number: '', position: '' });
-    onClearSelection?.();
+    try {
+      await onBulkMoveLocation(selectedItems, {
+        room_area: room || undefined,
+        storage_type: storageType || undefined,
+        storage_number: storageNumber || undefined,
+        position: position || undefined,
+      });
+      setShowMoveDialog(false);
+      setMoveForm({ room_area: '', storage_type: '', storage_number: '', position: '' });
+      onClearSelection?.();
+    } catch (error) {
+      handleAsyncError(error, {
+        context: 'Bulk move error',
+        fallback: 'Failed to move selected items',
+      });
+    }
   };
 
   const handleExport = () => {

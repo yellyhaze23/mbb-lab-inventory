@@ -398,7 +398,7 @@ export default function Login() {
                       placeholder="you@example.com"
                       autoComplete="email"
                       inputMode="email"
-                      pattern="[A-Za-z0-9@._+-]+"
+                      pattern="[A-Za-z0-9@._+\-]+"
                       className={`pl-11 pr-4 h-[52px] rounded-full border-2 bg-white text-[#1a0a0e] placeholder:text-[#c0a8ae] focus:ring-4 ${
                         showEmailValidation
                           ? 'border-red-300 focus:border-red-500 focus:ring-red-100'

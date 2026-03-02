@@ -42,6 +42,7 @@ import debounce from 'lodash/debounce';
 import { invokeEdgeFunction } from '@/lib/edgeClient';
 import MsdsViewerModal from '@/components/msds/MsdsViewerModal';
 import { getSignedMsdsUrl } from '@/services/msdsService';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 const SESSION_KEY = 'lab_student_session';
 const SESSION_DURATION = 4 * 60 * 60 * 1000; // 4 hours
@@ -119,7 +120,10 @@ export default function StudentUse() {
       const items = res?.items || [];
       setAllItems(items);
     } catch (error) {
-      console.error('Error loading items:', error);
+      handleAsyncError(error, {
+        context: 'StudentUse load items error',
+        fallback: 'Failed to load available items',
+      });
     }
   };
 

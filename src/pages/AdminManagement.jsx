@@ -63,6 +63,7 @@ import { toast } from 'sonner';
 import { createPageUrl } from '../utils';
 import { listProfiles, getProfileByUserId, updateProfileById } from '@/api/profilesDataClient';
 import TablePagination from '@/components/ui/table-pagination';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 export default function AdminManagement() {
   const [profiles, setProfiles] = useState([]);
@@ -104,7 +105,10 @@ export default function AdminManagement() {
         return;
       }
     } catch (error) {
-      console.error('Error loading data:', error);
+      handleAsyncError(error, {
+        context: 'AdminManagement load error',
+        fallback: 'Failed to load admin data',
+      });
     } finally {
       setIsLoading(false);
     }

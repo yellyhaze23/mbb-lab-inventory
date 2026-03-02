@@ -27,6 +27,7 @@ import { toast } from 'sonner';
 import { listAllItems } from '@/api/itemsDataClient';
 import { listUsageLogs } from '@/api/usageLogsDataClient';
 import TablePagination from '@/components/ui/table-pagination';
+import { handleAsyncError } from '@/lib/errorHandling';
 
 export default function Reports() {
   const [items, setItems] = useState([]);
@@ -52,7 +53,10 @@ export default function Reports() {
       setItems(itemsData);
       setLogs(logsData);
     } catch (error) {
-      console.error('Error loading data:', error);
+      handleAsyncError(error, {
+        context: 'Reports load error',
+        fallback: 'Failed to load report data',
+      });
     } finally {
       setIsLoading(false);
     }
